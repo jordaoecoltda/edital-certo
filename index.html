@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edital Certo — O edital certo, na hora certa.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --verde:#0B3D2E; --verde-claro:#0F5440; --papel:#F7F6F2; --tinta:#1A1A18;
+  --cinza:#6B6F6C; --linha:#DDD9CF; --ouro:#C9A227; --alerta:#B3422E; --card:#FFFFFF;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:var(--papel);color:var(--tinta);min-height:100vh}
+.topo{background:var(--verde);color:#fff;padding:22px 24px 0}
+.topo-inner{max-width:1180px;margin:0 auto}
+.marca{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#9FBFB2;margin-bottom:4px}
+.topo h1{font-family:'Archivo',sans-serif;font-weight:800;font-size:clamp(22px,3.5vw,30px)}
+.topo h1 .pulso{display:inline-block;width:10px;height:10px;border-radius:50%;background:#3ECF8E;margin-left:9px;animation:pulso 2s infinite}
+@keyframes pulso{0%{box-shadow:0 0 0 0 rgba(62,207,142,.5)}70%{box-shadow:0 0 0 11px rgba(62,207,142,0)}100%{box-shadow:0 0 0 0 rgba(62,207,142,0)}}
+@media (prefers-reduced-motion:reduce){.pulso{animation:none}}
+.abas{max-width:1180px;margin:16px auto 0;display:flex;gap:4px}
+.aba{font-family:'Archivo',sans-serif;font-weight:700;font-size:14px;padding:11px 20px;border:none;border-radius:8px 8px 0 0;background:rgba(255,255,255,.12);color:#C9DAD2;cursor:pointer}
+.aba.ativa{background:var(--papel);color:var(--verde)}
+.aba .badge{background:var(--ouro);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:6px}
+.aba:focus-visible{outline:3px solid var(--ouro);outline-offset:-3px}
+
+.painel{max-width:1180px;margin:0 auto;padding:0 24px}
+.tela{display:none}.tela.ativa{display:block}
+
+/* ===== filtros ===== */
+.filtros{background:var(--card);border:1px solid var(--linha);border-radius:0 10px 10px 10px;padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;box-shadow:0 2px 10px rgba(11,61,46,.06)}
+.campo label,.legenda{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--cinza);margin-bottom:6px}
+.campo input,.campo select,textarea{width:100%;padding:10px 12px;border:1px solid var(--linha);border-radius:7px;font-family:'Inter',sans-serif;font-size:14px;background:#FCFBF8;color:var(--tinta)}
+.campo input:focus,.campo select:focus,textarea:focus{outline:2px solid var(--verde-claro);outline-offset:1px}
+.campo-larga{grid-column:1 / -1}
+.mods{grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap}
+.mods label.chip{display:flex;align-items:center;gap:6px;border:1px solid var(--linha);border-radius:20px;padding:7px 14px;font-size:13px;cursor:pointer;background:#FCFBF8;user-select:none}
+.mods label.chip:has(input:checked){background:var(--verde);color:#fff;border-color:var(--verde)}
+.mods input{accent-color:var(--ouro)}
+.acoes{grid-column:1 / -1;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.btn{font-family:'Archivo',sans-serif;font-weight:700;font-size:15px;padding:12px 26px;border:none;border-radius:7px;background:var(--verde);color:#fff;cursor:pointer;transition:background .15s}
+.btn:hover{background:var(--verde-claro)}
+.btn:focus-visible{outline:3px solid var(--ouro);outline-offset:2px}
+.btn[disabled]{opacity:.55;cursor:wait}
+.btn.sec{background:#EAF2EE;color:var(--verde)}
+.btn.mini{font-size:12.5px;padding:7px 14px}
+.dica{font-size:12.5px;color:var(--cinza)}
+
+/* ===== resumo / lista ===== */
+.resumo{margin:18px 0 0;display:flex;gap:24px;flex-wrap:wrap;align-items:baseline}
+.resumo .num{font-family:'Archivo',sans-serif;font-weight:800;font-size:25px;color:var(--verde)}
+.resumo .rotulo{font-size:12.5px;color:var(--cinza);margin-left:6px}
+.resumo .valor-total{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--ouro);font-size:17px}
+.lista{margin:14px 0 60px;display:grid;gap:14px}
+.licit{background:var(--card);border:1px solid var(--linha);border-left:4px solid var(--verde);border-radius:9px;padding:17px 19px;display:grid;gap:8px}
+.licit .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.05em;text-transform:uppercase}
+.tag{background:#EAF2EE;color:var(--verde);padding:3px 9px;border-radius:4px;font-weight:600}
+.tag.uf{background:#F4EEDC;color:#8A6D14}
+.prazo{margin-left:auto;font-weight:600;padding:3px 9px;border-radius:4px;background:#EAF2EE;color:var(--verde)}
+.prazo.urgente{background:#F8E8E4;color:var(--alerta)}
+.licit h3{font-weight:600;font-size:15.5px;line-height:1.45}
+.licit .orgao{font-size:13px;color:var(--cinza)}
+.licit .rodape{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:4px}
+.licit .valor{font-family:'JetBrains Mono',monospace;font-weight:600;font-size:15px;color:var(--verde)}
+.licit a{font-size:13.5px;font-weight:600;color:var(--verde-claro);text-decoration:none}
+.licit a:hover{text-decoration:underline}
+.licit mark{background:#F3E6B8;padding:0 2px;border-radius:2px}
+.licit .ia-box{background:#F4F8F6;border:1px solid #D8E6DF;border-radius:8px;padding:14px;font-size:13.5px;line-height:1.6;white-space:pre-wrap}
+.licit .ia-box strong{color:var(--verde)}
+
+/* ===== pipeline ===== */
+.grupo{margin:22px 0}
+.grupo h2{font-family:'Archivo',sans-serif;font-weight:700;font-size:16px;color:var(--verde);display:flex;align-items:baseline;gap:10px;border-bottom:2px solid var(--linha);padding-bottom:8px;margin-bottom:12px}
+.grupo h2 .soma{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ouro);margin-left:auto}
+.status-sel{padding:6px 10px;border:1px solid var(--linha);border-radius:6px;font-size:12.5px;background:#FCFBF8}
+.notas{margin-top:6px;font-size:13px;min-height:42px}
+.vazio{color:var(--cinza);font-size:14px;padding:20px 0}
+
+.estado{margin:34px 0;text-align:center;color:var(--cinza);font-size:14.5px}
+.estado.erro{color:var(--alerta)}
+.spinner{display:inline-block;width:18px;height:18px;border:3px solid var(--linha);border-top-color:var(--verde);border-radius:50%;animation:girar .8s linear infinite;vertical-align:middle;margin-right:9px}
+@keyframes girar{to{transform:rotate(360deg)}}
+
+/* ===== perfil ===== */
+.cartao{background:var(--card);border:1px solid var(--linha);border-radius:10px;padding:22px;margin-top:20px;max-width:720px}
+.cartao h2{font-family:'Archivo',sans-serif;font-size:17px;color:var(--verde);margin-bottom:6px}
+.cartao p{font-size:13.5px;color:var(--cinza);margin-bottom:14px}
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-inner">
+    <div class="marca">Jordão &amp; Co · Inteligência em Negócios</div>
+    <h1>Edital Certo<span class="pulso" aria-hidden="true"></span></h1>
+    <p style="margin-top:4px;font-size:13.5px;color:#C9DAD2">O edital certo, na hora certa.</p>
+    <nav class="abas">
+      <button class="aba ativa" data-tela="radar">Radar</button>
+      <button class="aba" data-tela="pipeline">Minhas Licitações<span class="badge" id="badge-pipe">0</span></button>
+      <button class="aba" data-tela="perfil">Perfil da Empresa</button>
+    </nav>
+  </div>
+</header>
+
+<main class="painel">
+
+  <!-- ================= RADAR ================= -->
+  <section class="tela ativa" id="tela-radar">
+    <form class="filtros" onsubmit="return false">
+      <div class="campo campo-larga">
+        <label for="palavras">Palavras-chave no objeto (separe por vírgula — vazio = tudo)</label>
+        <input id="palavras" type="text" placeholder="ex.: veículo, locação de frota, automóvel">
+      </div>
+      <div class="mods">
+        <span class="legenda" style="width:100%">Modalidades (pode marcar várias)</span>
+        <label class="chip"><input type="checkbox" class="mod" value="6" checked>Pregão eletrônico</label>
+        <label class="chip"><input type="checkbox" class="mod" value="8">Dispensa</label>
+        <label class="chip"><input type="checkbox" class="mod" value="4">Concorrência eletrônica</label>
+        <label class="chip"><input type="checkbox" class="mod" value="12">Credenciamento</label>
+        <label class="chip"><input type="checkbox" class="mod" value="1">Leilão eletrônico</label>
+        <label class="chip"><input type="checkbox" class="mod" value="9">Inexigibilidade</label>
+      </div>
+      <div class="campo">
+        <label for="uf">UF</label>
+        <select id="uf"><option value="SP" selected>SP</option><option value="">Todas</option><option>AC</option><option>AL</option><option>AM</option><option>AP</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MG</option><option>MS</option><option>MT</option><option>PA</option><option>PB</option><option>PE</option><option>PI</option><option>PR</option><option>RJ</option><option>RN</option><option>RO</option><option>RR</option><option>RS</option><option>SC</option><option>SE</option><option>TO</option></select>
+      </div>
+      <div class="campo">
+        <label for="municipio">Município (contém)</label>
+        <input id="municipio" type="text" placeholder="ex.: Santo André">
+      </div>
+      <div class="campo">
+        <label for="vmin">Valor mínimo (R$)</label>
+        <input id="vmin" type="number" min="0" placeholder="0">
+      </div>
+      <div class="campo">
+        <label for="vmax">Valor máximo (R$)</label>
+        <input id="vmax" type="number" min="0" placeholder="sem limite">
+      </div>
+      <div class="campo">
+        <label for="dias">Propostas abertas nos próximos</label>
+        <select id="dias"><option value="7">7 dias</option><option value="15" selected>15 dias</option><option value="30">30 dias</option><option value="60">60 dias</option></select>
+      </div>
+      <div class="campo">
+        <label for="ordem">Ordenar por</label>
+        <select id="ordem"><option value="prazo" selected>Prazo (mais urgente)</option><option value="valor-desc">Maior valor</option><option value="valor-asc">Menor valor</option></select>
+      </div>
+      <div class="campo">
+        <label for="paginas">Profundidade (por modalidade)</label>
+        <select id="paginas"><option value="2">100 editais</option><option value="5" selected>250 editais</option><option value="10">500 editais</option></select>
+      </div>
+      <div class="acoes">
+        <button class="btn" id="buscar" type="button">Buscar oportunidades</button>
+        <span class="dica">Fonte oficial: pncp.gov.br · Lei 14.133/2021</span>
+      </div>
+    </form>
+
+    <div class="resumo" id="resumo" hidden>
+      <div><span class="num" id="qtd">0</span><span class="rotulo">oportunidades</span></div>
+      <div><span class="valor-total" id="soma">R$ 0</span><span class="rotulo">valor estimado somado</span></div>
+    </div>
+    <div class="estado" id="estado" hidden></div>
+    <section class="lista" id="lista" aria-live="polite"></section>
+  </section>
+
+  <!-- ================= PIPELINE ================= -->
+  <section class="tela" id="tela-pipeline">
+    <div class="acoes" style="margin-top:20px">
+      <button class="btn sec mini" id="exportar" type="button">Exportar CSV</button>
+      <span class="dica">Suas licitações salvas, organizadas por etapa. Anotações são salvas automaticamente.</span>
+    </div>
+    <div id="pipeline-conteudo"></div>
+  </section>
+
+  <!-- ================= PERFIL ================= -->
+  <section class="tela" id="tela-perfil">
+    <div class="cartao">
+      <h2>Perfil da empresa</h2>
+      <p>Descreva o que sua empresa vende/faz, porte, certidões que possui e região de atuação. A análise por IA usa isso para avaliar se cada edital vale a pena pra você.</p>
+      <textarea id="perfil-texto" rows="6" placeholder="ex.: Jordão & Co Ltda, intermediação de negócios com especialização em veículos. Atuamos na Grande SP/ABC. Interesse em fornecimento e locação de veículos, intermediação de compras..."></textarea>
+      <div class="acoes" style="margin-top:14px">
+        <button class="btn" id="salvar-perfil" type="button">Salvar perfil</button>
+        <span class="dica" id="perfil-ok"></span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ============ utilidades ============ */
+const $ = id => document.getElementById(id);
+const fmtBRL = v => (v==null||isNaN(v)||v===0) ? "Sigiloso / não informado" :
+  v.toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0});
+const yyyymmdd = d => d.toISOString().slice(0,10).replace(/-/g,"");
+const esc = s => (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function linkPNCP(nc){
+  const m=(nc||"").match(/^(\d{14})-1-(\d+)\/(\d{4})$/);
+  return m?`https://pncp.gov.br/app/editais/${m[1]}/${m[3]}/${parseInt(m[2],10)}`:"https://pncp.gov.br/app/editais";
+}
+function partesPNCP(nc){
+  const m=(nc||"").match(/^(\d{14})-1-(\d+)\/(\d{4})$/);
+  return m?{cnpj:m[1],seq:parseInt(m[2],10),ano:m[3]}:null;
+}
+function destacar(texto,termos){
+  let t=esc(texto);
+  termos.forEach(termo=>{ if(!termo)return;
+    const re=new RegExp("("+termo.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi");
+    t=t.replace(re,"<mark>$1</mark>");
+  });
+  return t;
+}
+
+/* ============ armazenamento (localStorage com fallback em memória) ============ */
+const memoria={};
+const store={
+  get(k){ try{return JSON.parse(localStorage.getItem(k))}catch(e){return memoria[k]??null} },
+  set(k,v){ try{localStorage.setItem(k,JSON.stringify(v))}catch(e){memoria[k]=v} }
+};
+let salvas = store.get("licitacoes-salvas") || {};   // chave: numeroControlePNCP
+let perfil = store.get("perfil-empresa") || "";
+let ultimaBusca = [];  // resultados da última busca em memória
+
+const STATUS=[["salva","📌 Salvas no radar"],["analisando","🔍 Analisando edital"],["participando","✋ Participando"],["vencida","🏆 Vencidas"],["perdida","✖ Perdidas / descartadas"]];
+
+/* ============ abas ============ */
+document.querySelectorAll(".aba").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".aba").forEach(x=>x.classList.remove("ativa"));
+  document.querySelectorAll(".tela").forEach(x=>x.classList.remove("ativa"));
+  b.classList.add("ativa");
+  $("tela-"+b.dataset.tela).classList.add("ativa");
+  if(b.dataset.tela==="pipeline") renderPipeline();
+}));
+
+/* ============ busca PNCP ============ */
+async function buscar(){
+  const btn=$("buscar"); btn.disabled=true;
+  $("lista").innerHTML=""; $("resumo").hidden=true;
+  const estado=$("estado"); estado.hidden=false; estado.className="estado";
+  estado.innerHTML='<span class="spinner"></span>Consultando o PNCP…';
+
+  const termos=$("palavras").value.split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
+  const uf=$("uf").value, municipio=$("municipio").value.trim().toLowerCase();
+  const vmin=parseFloat($("vmin").value)||0, vmax=parseFloat($("vmax").value)||Infinity;
+  const dias=parseInt($("dias").value,10), maxPag=parseInt($("paginas").value,10);
+  const mods=[...document.querySelectorAll(".mod:checked")].map(c=>c.value);
+  if(!mods.length){ estado.className="estado erro"; estado.textContent="Marque ao menos uma modalidade."; btn.disabled=false; return; }
+
+  const dataFinal=yyyymmdd(new Date(Date.now()+dias*86400000));
+  const base="https://pncp.gov.br/api/consulta/v1/contratacoes/proposta";
+  let resultados=[];
+  try{
+    for(const mod of mods){
+      for(let pag=1;pag<=maxPag;pag++){
+        const p=new URLSearchParams({dataFinal,codigoModalidadeContratacao:mod,pagina:String(pag),tamanhoPagina:"50"});
+        if(uf)p.set("uf",uf);
+        const r=await fetch(base+"?"+p,{headers:{Accept:"application/json"}});
+        if(r.status===204)break;
+        if(!r.ok)throw new Error("HTTP "+r.status);
+        const j=await r.json();
+        resultados.push(...(j?.data||[]));
+        estado.innerHTML=`<span class="spinner"></span>Analisando ${resultados.length} editais…`;
+        if(pag>=(j?.totalPaginas||1))break;
+      }
+    }
+  }catch(e){
+    estado.className="estado erro";
+    estado.textContent="Falha ao acessar a API do PNCP ("+e.message+"). Se for CORS, hospede num domínio (GitHub Pages) ou me chame pra montarmos um proxy.";
+    btn.disabled=false; return;
+  }
+
+  let f=resultados.filter(r=>{
+    const obj=(r.objetoCompra||"").toLowerCase();
+    if(termos.length && !termos.some(t=>obj.includes(t)))return false;
+    if(municipio && !((r.unidadeOrgao?.municipioNome||"").toLowerCase().includes(municipio)))return false;
+    const v=Number(r.valorTotalEstimado)||0;
+    if(v && (v<vmin||v>vmax))return false;
+    if(!v && vmin>0)return false;
+    return true;
+  });
+
+  const ordem=$("ordem").value;
+  if(ordem==="prazo") f.sort((a,b)=>new Date(a.dataEncerramentoProposta||0)-new Date(b.dataEncerramentoProposta||0));
+  if(ordem==="valor-desc") f.sort((a,b)=>(b.valorTotalEstimado||0)-(a.valorTotalEstimado||0));
+  if(ordem==="valor-asc") f.sort((a,b)=>(a.valorTotalEstimado||0)-(b.valorTotalEstimado||0));
+
+  ultimaBusca=f;
+  estado.hidden=true;
+  if(!f.length){
+    estado.hidden=false;
+    estado.textContent=`Nenhum edital encontrado entre os ${resultados.length} analisados. Ajuste filtros ou aumente a profundidade.`;
+    btn.disabled=false; return;
+  }
+  $("qtd").textContent=f.length;
+  $("soma").textContent=fmtBRL(f.reduce((s,r)=>s+(Number(r.valorTotalEstimado)||0),0));
+  $("resumo").hidden=false;
+  $("lista").innerHTML=f.map((r,i)=>cardHTML(r,i,termos)).join("");
+  btn.disabled=false;
+}
+
+function cardHTML(r,i,termos){
+  const enc=r.dataEncerramentoProposta?new Date(r.dataEncerramentoProposta):null;
+  const dr=enc?Math.ceil((enc-new Date())/86400000):null;
+  const urg=dr!=null&&dr<=3;
+  const cid=[r.unidadeOrgao?.municipioNome,r.unidadeOrgao?.ufSigla].filter(Boolean).join(" / ");
+  const jaSalva=!!salvas[r.numeroControlePNCP];
+  return `<article class="licit" id="card-${i}">
+    <div class="meta">
+      <span class="tag">${esc(r.modalidadeNome||"—")}</span>
+      ${cid?`<span class="tag uf">${esc(cid)}</span>`:""}
+      ${dr!=null?`<span class="prazo ${urg?"urgente":""}">${dr<=0?"Encerra hoje":"Encerra em "+dr+" dia"+(dr>1?"s":"")}</span>`:""}
+    </div>
+    <h3>${destacar(r.objetoCompra||"(objeto não informado)",termos)}</h3>
+    <div class="orgao">${esc(r.orgaoEntidade?.razaoSocial||"")}</div>
+    <div class="rodape">
+      <span class="valor">${fmtBRL(Number(r.valorTotalEstimado))}</span>
+      <a href="${linkPNCP(r.numeroControlePNCP)}" target="_blank" rel="noopener">Ver no PNCP →</a>
+      <button class="btn sec mini" onclick="salvarLicit(${i})" ${jaSalva?"disabled":""}>${jaSalva?"✓ Salva":"📌 Salvar"}</button>
+      <button class="btn mini" onclick="analisarIA(${i})">🤖 Pergunte ao Edital (IA)</button>
+    </div>
+    <div class="ia-box" id="ia-${i}" hidden></div>
+  </article>`;
+}
+
+/* ============ pipeline ============ */
+function salvarLicit(i){
+  const r=ultimaBusca[i]; if(!r)return;
+  salvas[r.numeroControlePNCP]={
+    nc:r.numeroControlePNCP, objeto:r.objetoCompra, orgao:r.orgaoEntidade?.razaoSocial,
+    cidade:[r.unidadeOrgao?.municipioNome,r.unidadeOrgao?.ufSigla].filter(Boolean).join(" / "),
+    modalidade:r.modalidadeNome, valor:Number(r.valorTotalEstimado)||0,
+    encerramento:r.dataEncerramentoProposta||"", status:"salva", notas:"", salvaEm:new Date().toISOString()
+  };
+  store.set("licitacoes-salvas",salvas);
+  atualizarBadge();
+  const btns=document.querySelectorAll(`#card-${i} .btn.sec.mini`);
+  btns.forEach(b=>{b.disabled=true;b.textContent="✓ Salva";});
+}
+function atualizarBadge(){ $("badge-pipe").textContent=Object.keys(salvas).length; }
+
+function renderPipeline(){
+  const cont=$("pipeline-conteudo");
+  const itens=Object.values(salvas);
+  if(!itens.length){ cont.innerHTML='<p class="vazio">Nenhuma licitação salva ainda. Use o Radar e clique em 📌 Salvar nas oportunidades que interessarem.</p>'; return; }
+  cont.innerHTML=STATUS.map(([st,titulo])=>{
+    const grupo=itens.filter(x=>x.status===st);
+    if(!grupo.length)return "";
+    const soma=grupo.reduce((s,x)=>s+(x.valor||0),0);
+    return `<div class="grupo"><h2>${titulo} <span class="dica">(${grupo.length})</span><span class="soma">${soma?fmtBRL(soma):""}</span></h2>
+      ${grupo.map(x=>{
+        const enc=x.encerramento?new Date(x.encerramento):null;
+        const dr=enc?Math.ceil((enc-new Date())/86400000):null;
+        return `<article class="licit">
+          <div class="meta">
+            <span class="tag">${esc(x.modalidade||"—")}</span>
+            ${x.cidade?`<span class="tag uf">${esc(x.cidade)}</span>`:""}
+            ${dr!=null?`<span class="prazo ${dr<=3?"urgente":""}">${dr<0?"Encerrada":dr===0?"Encerra hoje":"Encerra em "+dr+"d"}</span>`:""}
+          </div>
+          <h3>${esc(x.objeto||"")}</h3>
+          <div class="orgao">${esc(x.orgao||"")}</div>
+          <div class="rodape">
+            <span class="valor">${fmtBRL(x.valor)}</span>
+            <a href="${linkPNCP(x.nc)}" target="_blank" rel="noopener">Ver no PNCP →</a>
+            <select class="status-sel" onchange="mudarStatus('${x.nc}',this.value)">
+              ${STATUS.map(([v,t])=>`<option value="${v}" ${v===x.status?"selected":""}>${t.replace(/^[^\s]+\s/,"")}</option>`).join("")}
+            </select>
+            <button class="btn sec mini" onclick="removerLicit('${x.nc}')">Remover</button>
+          </div>
+          <textarea class="notas" placeholder="Anotações: requisitos, documentos, estratégia de preço…" onchange="mudarNotas('${x.nc}',this.value)">${esc(x.notas||"")}</textarea>
+        </article>`;
+      }).join("")}</div>`;
+  }).join("") || '<p class="vazio">Nenhuma licitação nos grupos.</p>';
+}
+function mudarStatus(nc,v){ if(salvas[nc]){salvas[nc].status=v;store.set("licitacoes-salvas",salvas);renderPipeline();} }
+function mudarNotas(nc,v){ if(salvas[nc]){salvas[nc].notas=v;store.set("licitacoes-salvas",salvas);} }
+function removerLicit(nc){ delete salvas[nc];store.set("licitacoes-salvas",salvas);atualizarBadge();renderPipeline(); }
+
+function exportarCSV(){
+  const itens=Object.values(salvas);
+  if(!itens.length)return alert("Nada para exportar ainda.");
+  const cab=["Status","Objeto","Orgao","Cidade","Modalidade","ValorEstimado","Encerramento","Link","Notas"];
+  const linhas=itens.map(x=>[x.status,x.objeto,x.orgao,x.cidade,x.modalidade,x.valor,x.encerramento,linkPNCP(x.nc),x.notas]
+    .map(c=>'"'+String(c??"").replace(/"/g,'""')+'"').join(";"));
+  const blob=new Blob(["\uFEFF"+cab.join(";")+"\n"+linhas.join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="edital-certo-licitacoes.csv"; a.click();
+}
+$("exportar").addEventListener("click",exportarCSV);
+
+/* ============ Pergunte ao Edital (IA) ============ */
+async function buscarItens(nc){
+  const p=partesPNCP(nc); if(!p)return null;
+  try{
+    const r=await fetch(`https://pncp.gov.br/api/pncp/v1/orgaos/${p.cnpj}/compras/${p.ano}/${p.seq}/itens?pagina=1&tamanhoPagina=20`);
+    if(!r.ok)return null;
+    const j=await r.json();
+    const arr=Array.isArray(j)?j:(j?.data||[]);
+    return arr.slice(0,20).map(it=>({descricao:it.descricao,quantidade:it.quantidade,valorUnitarioEstimado:it.valorUnitarioEstimado}));
+  }catch(e){return null;}
+}
+
+async function analisarIA(i){
+  const r=ultimaBusca[i]; if(!r)return;
+  const box=$("ia-"+i); box.hidden=false;
+  box.innerHTML='<span class="spinner"></span>Lendo o edital e os itens da compra…';
+
+  const itens=await buscarItens(r.numeroControlePNCP);
+  const dados={
+    objeto:r.objetoCompra, orgao:r.orgaoEntidade?.razaoSocial,
+    cidade:r.unidadeOrgao?.municipioNome+"/"+(r.unidadeOrgao?.ufSigla||""),
+    modalidade:r.modalidadeNome, valorEstimado:r.valorTotalEstimado,
+    aberturaProposta:r.dataAberturaProposta, encerramentoProposta:r.dataEncerramentoProposta,
+    informacaoComplementar:r.informacaoComplementar||null,
+    itens:itens||"(não foi possível obter os itens)"
+  };
+
+  const prompt=`Você é um especialista em licitações públicas brasileiras (Lei 14.133/2021) assessorando um empresário.
+
+PERFIL DA EMPRESA DO USUÁRIO:
+${perfil||"(perfil não preenchido — faça a análise de forma geral)"}
+
+DADOS DA LICITAÇÃO (do PNCP):
+${JSON.stringify(dados,null,2)}
+
+Responda em português, de forma direta e prática, no formato:
+RESUMO: o que está sendo comprado, em 2 frases simples.
+ITENS PRINCIPAIS: os itens mais relevantes com quantidades e valores (se disponíveis).
+MATCH COM A EMPRESA: nota de 0 a 10 e justificativa de 1-2 frases sobre se vale a pena para este perfil.
+PONTOS DE ATENÇÃO: 2-3 riscos ou exigências prováveis (habilitação, prazo, logística).
+PRÓXIMO PASSO: a ação concreta recomendada.
+
+Sem markdown, sem asteriscos. Use os rótulos em maiúsculas exatamente como acima.`;
+
+  try{
+    const resp=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:prompt}]})
+    });
+    if(!resp.ok)throw new Error("HTTP "+resp.status);
+    const data=await resp.json();
+    const texto=(data.content||[]).filter(c=>c.type==="text").map(c=>c.text).join("\n").trim();
+    if(!texto)throw new Error("resposta vazia");
+    box.innerHTML=esc(texto).replace(/^(RESUMO|ITENS PRINCIPAIS|MATCH COM A EMPRESA|PONTOS DE ATENÇÃO|PRÓXIMO PASSO):/gm,"<strong>$1:</strong>");
+  }catch(e){
+    box.innerHTML='⚠️ A análise por IA funciona quando o app roda dentro do Claude. Hospedado fora (GitHub Pages), é preciso um pequeno backend com chave da API — me chama que montamos. ('+esc(e.message)+')';
+  }
+}
+
+/* ============ perfil ============ */
+$("perfil-texto").value=perfil;
+$("salvar-perfil").addEventListener("click",()=>{
+  perfil=$("perfil-texto").value.trim();
+  store.set("perfil-empresa",perfil);
+  $("perfil-ok").textContent="✓ Perfil salvo — a IA vai usar nas próximas análises.";
+});
+
+/* ============ init ============ */
+$("buscar").addEventListener("click",buscar);
+atualizarBadge();
+/* frase de incentivo diário — aparece antes da primeira busca */
+(function(){
+  const e=$("estado");
+  e.hidden=false;
+  e.innerHTML='<span style="font-family:\'Archivo\',sans-serif;font-weight:700;font-size:17px;color:var(--verde)">Todo dia tem edital.</span><br><span>A questão é achar o seu. 👆 Configure os filtros e busque.</span>';
+})();
+</script>
+</body>
+</html>
