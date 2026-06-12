@@ -212,6 +212,26 @@ function destacar(texto,termos){
   return t;
 }
 
+/* espera em milissegundos */
+const dormir=ms=>new Promise(r=>setTimeout(r,ms));
+
+/* fetch com retry: tenta até 3x com espera progressiva quando o PNCP oscila */
+async function fetchRetry(url,opts={},tentativas=3){
+  for(let t=1;t<=tentativas;t++){
+    try{
+      const r=await fetch(url,opts);
+      if(r.status===429||r.status>=500)throw new Error("HTTP "+r.status);
+      return r;
+    }catch(e){
+      if(t===tentativas)throw e;
+      const est=$("estado");
+      if(est){est.hidden=false;est.className="estado";
+        est.innerHTML='<span class="spinner"></span>PNCP instável no momento, tentando novamente ('+t+'/'+(tentativas-1)+')…';}
+      await dormir(1800*t);
+    }
+  }
+}
+
 /* ============ armazenamento (localStorage com fallback em memória) ============ */
 const memoria={};
 const store={
@@ -255,18 +275,19 @@ async function buscar(){
       for(let pag=1;pag<=maxPag;pag++){
         const p=new URLSearchParams({dataFinal,codigoModalidadeContratacao:mod,pagina:String(pag),tamanhoPagina:"50"});
         if(uf)p.set("uf",uf);
-        const r=await fetch(base+"?"+p,{headers:{Accept:"application/json"}});
+        const r=await fetchRetry(base+"?"+p,{headers:{Accept:"application/json"}});
         if(r.status===204)break;
         if(!r.ok)throw new Error("HTTP "+r.status);
         const j=await r.json();
         resultados.push(...(j?.data||[]));
         estado.innerHTML=`<span class="spinner"></span>Analisando ${resultados.length} editais…`;
         if(pag>=(j?.totalPaginas||1))break;
+        await dormir(300); // pausa gentil entre páginas pra não estourar o limite do PNCP
       }
     }
   }catch(e){
     estado.className="estado erro";
-    estado.textContent="Falha ao acessar a API do PNCP ("+e.message+"). Se for CORS, hospede num domínio (GitHub Pages) ou me chame pra montarmos um proxy.";
+    estado.textContent="O PNCP está instável agora ("+e.message+"). Tentamos 3 vezes sem sucesso — aguarde 1 minuto e busque novamente.";
     btn.disabled=false; return;
   }
 
@@ -392,7 +413,7 @@ $("exportar").addEventListener("click",exportarCSV);
 async function buscarItens(nc){
   const p=partesPNCP(nc); if(!p)return null;
   try{
-    const r=await fetch(`https://pncp.gov.br/api/pncp/v1/orgaos/${p.cnpj}/compras/${p.ano}/${p.seq}/itens?pagina=1&tamanhoPagina=20`);
+    const r=await fetchRetry(`https://pncp.gov.br/api/pncp/v1/orgaos/${p.cnpj}/compras/${p.ano}/${p.seq}/itens?pagina=1&tamanhoPagina=20`);
     if(!r.ok)return null;
     const j=await r.json();
     const arr=Array.isArray(j)?j:(j?.data||[]);
