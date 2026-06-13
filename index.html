@@ -91,6 +91,21 @@ body{font-family:'Inter',sans-serif;background:var(--papel);color:var(--tinta);m
 </head>
 <body>
 
+<!-- ===================== CATRACA: tela de acesso ===================== -->
+<div id="gate" style="position:fixed;inset:0;z-index:9999;background:#0B3D2E;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#F7F6F2;border-radius:14px;max-width:420px;width:100%;padding:32px 28px;box-shadow:0 20px 60px rgba(0,0,0,.35)">
+    <div style="font-family:'Archivo',sans-serif;font-weight:800;font-size:23px;color:#0B3D2E">Edital Certo</div>
+    <p style="font-size:13.5px;color:#6b7670;margin:4px 0 20px">O edital certo, na hora certa.</p>
+    <label for="gate-codigo" style="font-size:13px;font-weight:600;color:#1A1A18">Código de acesso</label>
+    <input id="gate-codigo" type="text" autocomplete="off" placeholder="ex.: EDITAL-XXXX"
+      style="width:100%;box-sizing:border-box;margin-top:6px;padding:13px;border:1px solid #cfd8d3;border-radius:8px;font-size:15px;text-transform:uppercase">
+    <button class="btn" id="gate-entrar" type="button" style="width:100%;margin-top:14px">Entrar</button>
+    <p id="gate-msg" style="font-size:13px;margin-top:12px;min-height:18px"></p>
+    <p style="font-size:12px;color:#6b7670;margin-top:6px">Não tem um código? Fale com a Jordão &amp; Co.</p>
+  </div>
+</div>
+<!-- =================================================================== -->
+
 <header class="topo">
   <div class="topo-inner">
     <div class="marca">Jordão &amp; Co · Inteligência em Negócios</div>
@@ -243,6 +258,25 @@ let salvas = store.get("licitacoes-salvas") || {};   // chave: numeroControlePNC
 let perfil = store.get("perfil-empresa") || "";
 let ultimaBusca = [];  // resultados da última busca em memória
 
+/* ============ acesso (catraca pelo Worker) ============ */
+const WORKER="https://edital-certo-ia.jordaoecoltda.workers.dev";
+let codigoAcesso = store.get("codigo-acesso") || "";
+
+/* monta a chamada POST autenticada (código vai no cabeçalho X-Acesso) */
+function opsWorker(corpo){
+  return {
+    method:"POST",
+    headers:{ "Content-Type":"application/json", "X-Acesso": codigoAcesso },
+    body: JSON.stringify(corpo)
+  };
+}
+/* chamada ao Worker com retry; se o acesso cair (401), reabre a catraca */
+async function fetchWorker(rota, corpo){
+  const r = await fetchRetry(WORKER+rota, opsWorker(corpo));
+  if(r && r.status===401){ exigirAcesso(true); const e=new Error("acesso_expirado"); e.acesso=true; throw e; }
+  return r;
+}
+
 const STATUS=[["salva","📌 Salvas no radar"],["analisando","🔍 Analisando edital"],["participando","✋ Participando"],["vencida","🏆 Vencidas"],["perdida","✖ Perdidas / descartadas"]];
 
 /* ============ abas ============ */
@@ -269,14 +303,11 @@ async function buscar(){
   if(!mods.length){ estado.className="estado erro"; estado.textContent="Marque ao menos uma modalidade."; btn.disabled=false; return; }
 
   const dataFinal=yyyymmdd(new Date(Date.now()+dias*86400000));
-  const base="https://pncp.gov.br/api/consulta/v1/contratacoes/proposta";
   let resultados=[];
   try{
     for(const mod of mods){
       for(let pag=1;pag<=maxPag;pag++){
-        const p=new URLSearchParams({dataFinal,codigoModalidadeContratacao:mod,pagina:String(pag),tamanhoPagina:"50"});
-        if(uf)p.set("uf",uf);
-        const r=await fetchRetry(base+"?"+p,{headers:{Accept:"application/json"}});
+        const r=await fetchWorker("/buscar",{dataFinal,codigoModalidadeContratacao:mod,pagina:pag,tamanhoPagina:50,uf});
         if(r.status===204)break;
         if(!r.ok)throw new Error("HTTP "+r.status);
         const j=await r.json();
@@ -287,6 +318,7 @@ async function buscar(){
       }
     }
   }catch(e){
+    if(e.acesso){ btn.disabled=false; return; }
     estado.className="estado erro";
     estado.textContent="O PNCP está instável agora ("+e.message+"). Tentamos 3 vezes sem sucesso — aguarde 1 minuto e busque novamente.";
     btn.disabled=false; return;
@@ -414,7 +446,7 @@ $("exportar").addEventListener("click",exportarCSV);
 async function buscarItens(nc){
   const p=partesPNCP(nc); if(!p)return null;
   try{
-    const r=await fetchRetry(`https://pncp.gov.br/api/pncp/v1/orgaos/${p.cnpj}/compras/${p.ano}/${p.seq}/itens?pagina=1&tamanhoPagina=20`);
+    const r=await fetchWorker("/itens",{cnpj:p.cnpj,ano:p.ano,seq:p.seq});
     if(!r.ok)return null;
     const j=await r.json();
     const arr=Array.isArray(j)?j:(j?.data||[]);
@@ -455,10 +487,7 @@ PRÓXIMO PASSO: a ação concreta recomendada.
 Sem markdown, sem asteriscos. Use os rótulos em maiúsculas exatamente como acima.`;
 
   try{
-    const resp=await fetch("https://edital-certo-ia.jordaoecoltda.workers.dev",{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:prompt}]})
-    });
+    const resp=await fetchWorker("/analisar",{model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:prompt}]});
     if(!resp.ok)throw new Error("HTTP "+resp.status);
     const data=await resp.json();
     const texto=(data.content||[]).filter(c=>c.type==="text").map(c=>c.text).join("\n").trim();
@@ -508,6 +537,51 @@ btnEditarP.addEventListener("click",()=>modoEdicao(true));
 
 /* ============ init ============ */
 $("buscar").addEventListener("click",buscar);
+
+/* ============ catraca de acesso ============ */
+const gate=$("gate"), gateCodigo=$("gate-codigo"), gateMsg=$("gate-msg"), gateEntrar=$("gate-entrar");
+function abrirGate(){ gate.style.display="flex"; setTimeout(()=>gateCodigo.focus(),50); }
+function fecharGate(){ gate.style.display="none"; }
+function exigirAcesso(expirado){
+  codigoAcesso=""; store.set("codigo-acesso","");
+  gateMsg.style.color="#b00020";
+  gateMsg.textContent = expirado ? "Seu acesso expirou. Informe um código válido para continuar." : "";
+  abrirGate();
+}
+function fmtBR(iso){ try{return new Date(iso+"T12:00:00").toLocaleDateString("pt-BR")}catch(e){return iso} }
+async function validarCodigo(cod){
+  const r=await fetch(WORKER+"/validar",{method:"POST",headers:{"X-Acesso":cod}});
+  return r.json();   // {ok, validade} ou {ok:false, motivo}
+}
+async function tentarEntrar(){
+  const cod=gateCodigo.value.trim().toUpperCase();
+  if(!cod){ gateMsg.style.color="#b00020"; gateMsg.textContent="Digite seu código."; return; }
+  gateEntrar.disabled=true; gateMsg.style.color="#6b7670"; gateMsg.textContent="Verificando…";
+  try{
+    const res=await validarCodigo(cod);
+    if(res.ok){
+      codigoAcesso=cod; store.set("codigo-acesso",cod);
+      gateMsg.style.color="#0B3D2E"; gateMsg.textContent="✓ Acesso liberado até "+fmtBR(res.validade);
+      setTimeout(fecharGate,650);
+    }else if(res.motivo==="expirado"){
+      gateMsg.style.color="#b00020"; gateMsg.textContent="Código expirado em "+fmtBR(res.validade)+". Renove para continuar.";
+    }else{
+      gateMsg.style.color="#b00020"; gateMsg.textContent="Código inválido. Confira e tente novamente.";
+    }
+  }catch(e){
+    gateMsg.style.color="#b00020"; gateMsg.textContent="Não consegui verificar agora. Tente de novo em instantes.";
+  }finally{ gateEntrar.disabled=false; }
+}
+gateEntrar.addEventListener("click",tentarEntrar);
+gateCodigo.addEventListener("keydown",e=>{ if(e.key==="Enter") tentarEntrar(); });
+/* ao abrir o app: revalida o código guardado; sem código válido, mostra a catraca */
+(async function(){
+  if(codigoAcesso){
+    try{ const res=await validarCodigo(codigoAcesso); if(res.ok){ fecharGate(); return; } }catch(e){}
+  }
+  abrirGate();
+})();
+
 atualizarBadge();
 /* frase de incentivo diário — aparece antes da primeira busca */
 (function(){
