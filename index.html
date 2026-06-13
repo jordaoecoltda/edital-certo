@@ -69,6 +69,22 @@ body{font-family:'Inter',sans-serif;background:var(--papel);color:var(--tinta);m
 .licit mark{background:#F3E6B8;padding:0 2px;border-radius:2px}
 .licit .ia-box{background:#F4F8F6;border:1px solid #D8E6DF;border-radius:8px;padding:14px;font-size:13.5px;line-height:1.6;white-space:pre-wrap}
 .licit .ia-box strong{color:var(--verde)}
+/* selo "combina com perfil" */
+.tag.match{background:#E7F0FF;color:#1f5fbf}
+.toggle-perfil{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tinta);margin-left:auto;cursor:pointer;user-select:none}
+.toggle-perfil input{width:16px;height:16px;accent-color:var(--verde);cursor:pointer}
+/* checklist de documentos */
+.chk-box{background:#FBFAF6;border:1px solid #E4E0D4;border-radius:8px;padding:14px;font-size:13.5px;line-height:1.55}
+.chk-box .chk-resumo{font-weight:600;margin-bottom:8px}
+.chk-item{display:flex;gap:9px;align-items:flex-start;padding:5px 0;border-top:1px solid #EEE9DC}
+.chk-item:first-of-type{border-top:none}
+.chk-item .ic{font-size:14px;line-height:1.4;flex-shrink:0}
+.chk-item .nm{flex:1}
+.chk-item .st{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:4px;white-space:nowrap;font-weight:600;flex-shrink:0}
+.chk-item .st.ok{background:#EAF2EE;color:var(--verde)}
+.chk-item .st.vencendo{background:#F8EFD3;color:#8A6D14}
+.chk-item .st.vencido{background:#FBE3DB;color:var(--alerta)}
+.chk-item .st.falta{background:#EFEEE9;color:var(--cinza)}
 
 /* ===== pipeline ===== */
 .grupo{margin:22px 0}
@@ -198,6 +214,7 @@ body{font-family:'Inter',sans-serif;background:var(--papel);color:var(--tinta);m
     <div class="resumo" id="resumo" hidden>
       <div><span class="num" id="qtd">0</span><span class="rotulo">oportunidades</span></div>
       <div><span class="valor-total" id="soma">R$ 0</span><span class="rotulo">valor estimado somado</span></div>
+      <label class="toggle-perfil" id="wrap-so-perfil" hidden><input type="checkbox" id="so-perfil"> Mostrar só os que combinam com meu perfil</label>
     </div>
     <div class="estado" id="estado" hidden></div>
     <section class="lista" id="lista" aria-live="polite"></section>
@@ -347,6 +364,41 @@ document.querySelectorAll(".aba").forEach(b=>b.addEventListener("click",()=>{
 }));
 
 /* ============ busca PNCP ============ */
+/* ============ combinar com o perfil ============ */
+const semAcento = s => (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+const STOP_PERFIL = new Set();
+("de da do das dos e em no na nos nas a o os as um uma uns umas para por com sem sob sobre ate ao aos que se como mais menos muito muita muitos muitas ser estar tem tambem todos todas entre seus suas seu sua nosso nossa nossos nossas "+
+ "empresa empresas atuacao estado rede parceiros parceiro logisticos distribuidores prioritarias frentes novos usados ltda comercio via todo toda grande sediada especializacao servicos servico ramo area areas setor setores foco principais produtos produto solucoes solucao mercado clientes cliente"
+).split(/\s+/).forEach(w=>STOP_PERFIL.add(semAcento(w)));
+
+function palavrasPerfil(){
+  if(!perfil) return [];
+  const set=new Set();
+  semAcento(perfil).replace(/[^a-z0-9\s]/g," ").split(/\s+/).forEach(w=>{ if(w.length>=4 && !STOP_PERFIL.has(w)) set.add(w); });
+  return [...set].slice(0,60);
+}
+function combinaPerfil(r,chaves){
+  if(!chaves.length) return false;
+  const obj=semAcento(r.objetoCompra||"");
+  return chaves.some(t=>obj.includes(t));
+}
+/* re-renderiza a lista a partir de ultimaBusca, aplicando o toggle de perfil (sem nova busca) */
+function renderResultados(){
+  const termos=$("palavras").value.split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
+  const chaves=palavrasPerfil();
+  const temPerfil=chaves.length>0;
+  $("wrap-so-perfil").hidden=!temPerfil;
+  const soPerfil = temPerfil && $("so-perfil").checked;
+  const vis = soPerfil ? ultimaBusca.filter(r=>combinaPerfil(r,chaves)) : ultimaBusca;
+  $("qtd").textContent=vis.length;
+  $("soma").textContent=fmtBRL(vis.reduce((s,r)=>s+(Number(r.valorTotalEstimado)||0),0));
+  if(!vis.length){
+    $("lista").innerHTML='<div class="estado">Nenhum edital combina com seu perfil nesta busca. Desmarque o filtro acima para ver todos os '+ultimaBusca.length+'.</div>';
+    return;
+  }
+  $("lista").innerHTML=vis.map(r=>cardHTML(r, ultimaBusca.indexOf(r), termos, combinaPerfil(r,chaves))).join("");
+}
+
 async function buscar(){
   const btn=$("buscar"); btn.disabled=true;
   $("lista").innerHTML=""; $("resumo").hidden=true;
@@ -407,11 +459,12 @@ async function buscar(){
   $("qtd").textContent=f.length;
   $("soma").textContent=fmtBRL(f.reduce((s,r)=>s+(Number(r.valorTotalEstimado)||0),0));
   $("resumo").hidden=false;
-  $("lista").innerHTML=f.map((r,i)=>cardHTML(r,i,termos)).join("");
+  $("so-perfil").checked = palavrasPerfil().length>0;   // liga por padrão quando há perfil salvo
+  renderResultados();
   btn.disabled=false;
 }
 
-function cardHTML(r,i,termos){
+function cardHTML(r,i,termos,match){
   const enc=r.dataEncerramentoProposta?new Date(r.dataEncerramentoProposta):null;
   const dr=enc?Math.ceil((enc-new Date())/86400000):null;
   const urg=dr!=null&&dr<=3;
@@ -420,6 +473,7 @@ function cardHTML(r,i,termos){
   return `<article class="licit" id="card-${i}">
     <div class="meta">
       <span class="tag">${esc(r.modalidadeNome||"—")}</span>
+      ${match?`<span class="tag match">✦ combina com seu perfil</span>`:""}
       ${cid?`<span class="tag uf">${esc(cid)}</span>`:""}
       ${dr!=null?`<span class="prazo ${urg?"urgente":""}">${dr<=0?"Encerra hoje":"Encerra em "+dr+" dia"+(dr>1?"s":"")}</span>`:""}
     </div>
@@ -430,8 +484,10 @@ function cardHTML(r,i,termos){
       <a href="${linkPNCP(r.numeroControlePNCP)}" target="_blank" rel="noopener">Ver no PNCP →</a>
       <button class="btn sec mini" onclick="salvarLicit(${i})" ${jaSalva?"disabled":""}>${jaSalva?"✓ Salva":"📌 Salvar"}</button>
       <button class="btn mini" onclick="analisarIA(${i})">🤖 Pergunte ao Edital (IA)</button>
+      <button class="btn sec mini" onclick="checklistEdital(${i})">📋 Checklist de documentos</button>
     </div>
     <div class="ia-box" id="ia-${i}" hidden></div>
+    <div class="chk-box" id="chk-${i}" hidden></div>
   </article>`;
 }
 
@@ -554,6 +610,69 @@ Sem markdown, sem asteriscos. Use os rótulos em maiúsculas exatamente como aci
   }catch(e){
     box.innerHTML='⚠️ A análise por IA funciona quando o app roda dentro do Claude. Hospedado fora (GitHub Pages), é preciso um pequeno backend com chave da API — me chama que montamos. ('+esc(e.message)+')';
   }
+}
+
+/* ============ checklist de documentos por edital ============ */
+async function checklistEdital(i){
+  const r=ultimaBusca[i]; if(!r)return;
+  const box=$("chk-"+i); box.hidden=false; box.className="chk-box";
+  box.innerHTML='<span class="spinner"></span>Lendo o edital e montando o checklist de habilitação…';
+
+  const tiposCofre=todosDocs().map(d=>({id:d.id,nome:d.nome}));
+  const dados={
+    objeto:r.objetoCompra, modalidade:r.modalidadeNome,
+    valorEstimado:r.valorTotalEstimado, orgao:r.orgaoEntidade?.razaoSocial,
+    informacaoComplementar:r.informacaoComplementar||null
+  };
+  const prompt=`Você é um especialista em habilitação em licitações públicas brasileiras (Lei 14.133/2021).
+Com base nos dados do edital abaixo, liste os documentos de HABILITAÇÃO que este certame provavelmente exige.
+
+DADOS DO EDITAL (PNCP):
+${JSON.stringify(dados,null,2)}
+
+TIPOS DE DOCUMENTO QUE O USUÁRIO JÁ RASTREIA (use o "id" EXATO quando o documento exigido corresponder a um destes):
+${JSON.stringify(tiposCofre,null,2)}
+
+Responda APENAS com um array JSON válido — sem markdown, sem cercas de código, sem texto antes ou depois — no formato:
+[{"id":"<id da lista acima OU 'custom' quando não houver correspondência>","nome":"<nome do documento>","obrigatorio":true}]
+Inclua de 4 a 12 documentos, do mais comum ao mais específico deste objeto. Não invente exigências improváveis.`;
+
+  try{
+    const resp=await fetchWorker("/analisar",{model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:prompt}]});
+    if(!resp.ok)throw new Error("HTTP "+resp.status);
+    const data=await resp.json();
+    let texto=(data.content||[]).filter(c=>c.type==="text").map(c=>c.text).join("\n").trim();
+    texto=texto.replace(/```json/gi,"").replace(/```/g,"").trim();
+    const ini=texto.indexOf("["), fim=texto.lastIndexOf("]");
+    if(ini<0||fim<0)throw new Error("formato inesperado");
+    const exigidos=JSON.parse(texto.slice(ini,fim+1));
+    if(!Array.isArray(exigidos)||!exigidos.length)throw new Error("lista vazia");
+    box.innerHTML=renderChecklist(exigidos);
+  }catch(e){
+    if(e.acesso){ box.hidden=true; return; }
+    box.innerHTML='⚠️ Não consegui montar o checklist agora ('+esc(e.message)+'). A análise por IA precisa do app hospedado com o Worker e do PNCP no ar.';
+  }
+}
+function renderChecklist(exigidos){
+  const mapa={}; todosDocs().forEach(d=>mapa[d.id]=d);
+  let prontos=0;
+  const linhas=exigidos.map(req=>{
+    const d=mapa[req.id];
+    let cls="falta", ic="✗", st="Falta", nm=req.nome||"Documento";
+    if(d){
+      nm=d.nome;
+      const e=estadoDoc(d.id), s=statusDoc(e);
+      if(!e.possui){ cls="falta"; ic="✗"; st="Não cadastrado"; }
+      else { cls=s.cls; st=s.txt; ic = s.cls==="ok" ? "✓" : "⚠️"; if(s.cls==="ok") prontos++; }
+    }else{
+      cls="falta"; ic="✗"; st="Fora do cofre";
+    }
+    return `<div class="chk-item"><span class="ic">${ic}</span><span class="nm">${esc(nm)}</span><span class="st ${cls}">${esc(st)}</span></div>`;
+  }).join("");
+  const total=exigidos.length;
+  return `<div class="chk-resumo">📋 Você tem ${prontos} de ${total} documento${total>1?"s":""} em dia para este edital.</div>`+
+    linhas+
+    `<div style="margin-top:10px;font-size:12px;color:var(--cinza)">Lista sugerida pela IA a partir do edital — confirme sempre no edital oficial. Atualize validades na aba Documentos.</div>`;
 }
 
 /* ============ perfil ============ */
@@ -686,6 +805,7 @@ function adicionarDocCustom(){
 /* ============ init ============ */
 $("buscar").addEventListener("click",buscar);
 $("add-doc").addEventListener("click",adicionarDocCustom);
+$("so-perfil").addEventListener("change",renderResultados);
 
 /* ============ catraca de acesso ============ */
 const gate=$("gate"), gateCodigo=$("gate-codigo"), gateMsg=$("gate-msg"), gateEntrar=$("gate-entrar");
