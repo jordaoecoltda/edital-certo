@@ -87,6 +87,29 @@ body{font-family:'Inter',sans-serif;background:var(--papel);color:var(--tinta);m
 .cartao{background:var(--card);border:1px solid var(--linha);border-radius:10px;padding:22px;margin-top:20px;max-width:720px}
 .cartao h2{font-family:'Archivo',sans-serif;font-size:17px;color:var(--verde);margin-bottom:6px}
 .cartao p{font-size:13.5px;color:var(--cinza);margin-bottom:14px}
+/* ===== Cofre de Documentos ===== */
+.doc-resumo{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.doc-card-num{background:var(--card);border:1px solid var(--linha);border-radius:9px;padding:12px 16px;flex:1;min-width:110px}
+.doc-card-num .n{font-family:'Archivo',sans-serif;font-weight:800;font-size:24px;line-height:1}
+.doc-card-num .l{font-size:11.5px;color:var(--cinza);margin-top:4px}
+.doc-alerta{background:#FBEEE9;border:1px solid #E8C5B9;border-left:4px solid var(--alerta);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13.5px;line-height:1.5;color:#7a2c1c}
+.doc-grupo{font-family:'Archivo',sans-serif;font-weight:700;font-size:12px;color:var(--cinza);text-transform:uppercase;letter-spacing:.08em;margin:18px 0 8px}
+.doc{background:var(--card);border:1px solid var(--linha);border-left:4px solid var(--cinza);border-radius:9px;padding:13px 16px;display:grid;gap:10px;margin-bottom:9px}
+.doc.ok{border-left-color:var(--verde)}
+.doc.vencendo{border-left-color:var(--ouro)}
+.doc.vencido{border-left-color:var(--alerta)}
+.doc-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.doc-top input[type=checkbox]{width:17px;height:17px;accent-color:var(--verde);cursor:pointer}
+.doc-top .nome{font-weight:600;font-size:14.5px}
+.doc-status{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:4px;margin-left:auto;font-weight:600;white-space:nowrap}
+.doc-status.ok{background:#EAF2EE;color:var(--verde)}
+.doc-status.vencendo{background:#F8EFD3;color:#8A6D14}
+.doc-status.vencido{background:#FBE3DB;color:var(--alerta)}
+.doc-status.pendente{background:#EFEEE9;color:var(--cinza)}
+.doc-campos{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.doc-campos .mini-campo{display:flex;flex-direction:column;gap:4px}
+.doc-campos label{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--cinza)}
+.doc-campos input[type=date],.doc-campos input[type=text],.doc-campos select{padding:7px 10px;border:1px solid var(--linha);border-radius:6px;font-size:13px;background:#FCFBF8;font-family:'Inter',sans-serif;color:var(--tinta)}
 </style>
 </head>
 <body>
@@ -114,6 +137,7 @@ body{font-family:'Inter',sans-serif;background:var(--papel);color:var(--tinta);m
     <nav class="abas">
       <button class="aba ativa" data-tela="radar">Radar</button>
       <button class="aba" data-tela="pipeline">Minhas Licitações<span class="badge" id="badge-pipe">0</span></button>
+      <button class="aba" data-tela="docs">Documentos<span class="badge" id="badge-docs" style="background:var(--alerta);display:none">0</span></button>
       <button class="aba" data-tela="perfil">Perfil da Empresa</button>
     </nav>
   </div>
@@ -189,6 +213,37 @@ body{font-family:'Inter',sans-serif;background:var(--papel);color:var(--tinta);m
   </section>
 
   <!-- ================= PERFIL ================= -->
+  <!-- ================= DOCUMENTOS (COFRE) ================= -->
+  <section class="tela" id="tela-docs">
+    <div class="cartao" style="margin-bottom:16px">
+      <h2>Cofre de Documentos</h2>
+      <p>Cadastre seus documentos de habilitação e a validade de cada um. O app avisa antes de vencer — certidão vencida é o motivo nº 1 de desclassificação em licitação. Tudo fica salvo no seu navegador.</p>
+    </div>
+
+    <div class="doc-resumo" id="docs-resumo"></div>
+    <div class="doc-alerta" id="docs-alerta" hidden></div>
+    <div id="docs-lista"></div>
+
+    <div class="cartao" style="margin-top:16px">
+      <h2 style="font-size:14px">Adicionar outro documento</h2>
+      <div class="doc-campos" style="margin-top:10px">
+        <div class="mini-campo" style="flex:1;min-width:200px"><label>Nome do documento</label><input type="text" id="novo-doc-nome" placeholder="ex.: Certidão específica exigida pelo edital"></div>
+        <div class="mini-campo"><label>Grupo</label>
+          <select id="novo-doc-grupo">
+            <option>Regularidade fiscal</option>
+            <option>Regularidade trabalhista</option>
+            <option>Habilitação jurídica</option>
+            <option>Qualificação econômico-financeira</option>
+            <option>Qualificação técnica</option>
+            <option>Outros</option>
+          </select>
+        </div>
+        <button class="btn mini" id="add-doc" type="button">+ Adicionar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PERFIL ================= -->
   <section class="tela" id="tela-perfil">
     <div class="cartao">
       <h2>Perfil da empresa</h2>
@@ -260,7 +315,9 @@ let ultimaBusca = [];  // resultados da última busca em memória
 
 /* ============ acesso (catraca pelo Worker) ============ */
 const WORKER="https://edital-certo-ia.jordaoecoltda.workers.dev";
-let codigoAcesso = store.get("codigo-acesso") || "";
+let codigoAcesso = "";
+const INATIVIDADE_MS = 10*60*1000;   // pede o código de novo após 10 min sem uso
+let timerInatividade = null;
 
 /* monta a chamada POST autenticada (código vai no cabeçalho X-Acesso) */
 function opsWorker(corpo){
@@ -286,6 +343,7 @@ document.querySelectorAll(".aba").forEach(b=>b.addEventListener("click",()=>{
   b.classList.add("ativa");
   $("tela-"+b.dataset.tela).classList.add("ativa");
   if(b.dataset.tela==="pipeline") renderPipeline();
+  if(b.dataset.tela==="docs") renderDocs();
 }));
 
 /* ============ busca PNCP ============ */
@@ -535,15 +593,129 @@ btnSalvarP.addEventListener("click",()=>{
 });
 btnEditarP.addEventListener("click",()=>modoEdicao(true));
 
+/* ============ Cofre de Documentos ============ */
+const DOCS_PADRAO=[
+  {id:"cnd-federal", nome:"CND Federal — Receita/PGFN", grupo:"Regularidade fiscal"},
+  {id:"cnd-estadual", nome:"CND Estadual", grupo:"Regularidade fiscal"},
+  {id:"cnd-municipal", nome:"CND Municipal", grupo:"Regularidade fiscal"},
+  {id:"crf-fgts", nome:"CRF / FGTS — Caixa", grupo:"Regularidade fiscal"},
+  {id:"cndt", nome:"CNDT — Débitos Trabalhistas (TST)", grupo:"Regularidade trabalhista"},
+  {id:"falencia", nome:"Certidão Negativa de Falência / Recuperação Judicial", grupo:"Habilitação jurídica"},
+  {id:"contrato-social", nome:"Contrato Social / Estatuto + alterações", grupo:"Habilitação jurídica"},
+  {id:"cnpj", nome:"Comprovante de Inscrição no CNPJ", grupo:"Habilitação jurídica"},
+  {id:"balanco", nome:"Balanço Patrimonial / DRE do último exercício", grupo:"Qualificação econômico-financeira"},
+  {id:"atestado", nome:"Atestado(s) de Capacidade Técnica", grupo:"Qualificação técnica"},
+];
+let cofreEstado = store.get("cofre-docs") || {};
+let cofreCustom = store.get("cofre-custom") || [];
+
+function todosDocs(){ return [...DOCS_PADRAO, ...cofreCustom]; }
+function estadoDoc(id){ return cofreEstado[id] || {possui:false, validade:"", obs:""}; }
+function salvarCofre(){ store.set("cofre-docs",cofreEstado); store.set("cofre-custom",cofreCustom); atualizarBadgeDocs(); }
+
+function statusDoc(e){
+  if(!e.possui) return {cls:"pendente", txt:"Não cadastrado"};
+  if(!e.validade) return {cls:"ok", txt:"Em dia"};
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const v=new Date(e.validade+"T12:00:00");
+  const dias=Math.round((v-hoje)/86400000);
+  if(dias<0) return {cls:"vencido", txt:"Vencido há "+Math.abs(dias)+"d"};
+  if(dias<=30) return {cls:"vencendo", txt:"Vence em "+dias+"d"};
+  return {cls:"ok", txt:"Válido até "+v.toLocaleDateString("pt-BR")};
+}
+function contarCofre(){
+  let ok=0,vencendo=0,vencido=0,pendente=0;
+  todosDocs().forEach(d=>{ const s=statusDoc(estadoDoc(d.id)).cls;
+    if(s==="ok")ok++; else if(s==="vencendo")vencendo++; else if(s==="vencido")vencido++; else pendente++; });
+  return {ok,vencendo,vencido,pendente};
+}
+function atualizarBadgeDocs(){
+  const c=contarCofre(); const n=c.vencendo+c.vencido; const b=$("badge-docs");
+  if(b){ b.textContent=n; b.style.display=n?"inline-block":"none"; }
+}
+function renderDocs(){
+  const c=contarCofre();
+  $("docs-resumo").innerHTML=
+    `<div class="doc-card-num"><div class="n" style="color:var(--verde)">${c.ok}</div><div class="l">em dia</div></div>`+
+    `<div class="doc-card-num"><div class="n" style="color:#8A6D14">${c.vencendo}</div><div class="l">vencendo (30 dias)</div></div>`+
+    `<div class="doc-card-num"><div class="n" style="color:var(--alerta)">${c.vencido}</div><div class="l">vencidos</div></div>`+
+    `<div class="doc-card-num"><div class="n" style="color:var(--cinza)">${c.pendente}</div><div class="l">não cadastrados</div></div>`;
+  const alertaBox=$("docs-alerta");
+  const criticos=todosDocs().filter(d=>{ const s=statusDoc(estadoDoc(d.id)).cls; return s==="vencido"||s==="vencendo"; });
+  if(criticos.length){
+    alertaBox.hidden=false;
+    alertaBox.innerHTML="⚠️ <strong>Atenção:</strong> "+criticos.map(d=>esc(d.nome)+" ("+statusDoc(estadoDoc(d.id)).txt+")").join("; ")+". Renove antes de participar — documento vencido desclassifica.";
+  } else alertaBox.hidden=true;
+  const grupos={};
+  todosDocs().forEach(d=>{ const g=d.grupo||"Outros"; (grupos[g]=grupos[g]||[]).push(d); });
+  let html="";
+  Object.keys(grupos).forEach(g=>{
+    html+=`<div class="doc-grupo">${esc(g)}</div>`;
+    grupos[g].forEach(d=>{
+      const e=estadoDoc(d.id), s=statusDoc(e);
+      html+=`<div class="doc ${s.cls==="pendente"?"":s.cls}">`+
+        `<div class="doc-top">`+
+          `<input type="checkbox" ${e.possui?"checked":""} onchange="setDocPossui('${d.id}',this.checked)" title="Marque se você possui este documento">`+
+          `<span class="nome">${esc(d.nome)}</span>`+
+          `<span class="doc-status ${s.cls}">${s.txt}</span>`+
+        `</div>`+
+        `<div class="doc-campos">`+
+          `<div class="mini-campo"><label>Validade</label><input type="date" value="${e.validade||""}" onchange="setDocValidade('${d.id}',this.value)"></div>`+
+          `<div class="mini-campo" style="flex:1;min-width:170px"><label>Observação (nº, órgão…)</label><input type="text" value="${esc(e.obs||"")}" placeholder="opcional" onchange="setDocObs('${d.id}',this.value)"></div>`+
+          (d.custom?`<button class="btn sec mini" type="button" onclick="removerDoc('${d.id}')">remover</button>`:"")+
+        `</div>`+
+      `</div>`;
+    });
+  });
+  $("docs-lista").innerHTML=html;
+}
+function setDocPossui(id,v){ const e=estadoDoc(id); e.possui=v; cofreEstado[id]=e; salvarCofre(); renderDocs(); }
+function setDocValidade(id,v){ const e=estadoDoc(id); e.validade=v; if(v)e.possui=true; cofreEstado[id]=e; salvarCofre(); renderDocs(); }
+function setDocObs(id,v){ const e=estadoDoc(id); e.obs=v; cofreEstado[id]=e; salvarCofre(); }
+function removerDoc(id){ cofreCustom=cofreCustom.filter(d=>d.id!==id); delete cofreEstado[id]; salvarCofre(); renderDocs(); }
+function adicionarDocCustom(){
+  const nome=$("novo-doc-nome").value.trim(); if(!nome) return;
+  const grupo=$("novo-doc-grupo").value;
+  const id="custom-"+Date.now();
+  cofreCustom.push({id,nome,grupo,custom:true});
+  cofreEstado[id]={possui:true,validade:"",obs:""};
+  $("novo-doc-nome").value="";
+  salvarCofre(); renderDocs();
+}
+
 /* ============ init ============ */
 $("buscar").addEventListener("click",buscar);
+$("add-doc").addEventListener("click",adicionarDocCustom);
 
 /* ============ catraca de acesso ============ */
 const gate=$("gate"), gateCodigo=$("gate-codigo"), gateMsg=$("gate-msg"), gateEntrar=$("gate-entrar");
 function abrirGate(){ gate.style.display="flex"; setTimeout(()=>gateCodigo.focus(),50); }
 function fecharGate(){ gate.style.display="none"; }
+
+/* registra atividade e rearma o relógio de inatividade (só quando desbloqueado) */
+function marcarAtividade(){
+  if(!codigoAcesso) return;
+  sessionStorage.setItem("ec-ultimo", String(Date.now()));
+  if(timerInatividade) clearTimeout(timerInatividade);
+  timerInatividade = setTimeout(bloquearPorInatividade, INATIVIDADE_MS);
+}
+/* encerra a sessão local (não mexe na validade do código no servidor) */
+function encerrarSessao(){
+  codigoAcesso="";
+  sessionStorage.removeItem("ec-sessao");
+  sessionStorage.removeItem("ec-ultimo");
+  if(timerInatividade){ clearTimeout(timerInatividade); timerInatividade=null; }
+}
+function bloquearPorInatividade(){
+  encerrarSessao();
+  gateCodigo.value="";
+  gateMsg.style.color="#6b7670";
+  gateMsg.textContent="Sessão encerrada por inatividade (10 min). Informe o código para continuar.";
+  abrirGate();
+}
 function exigirAcesso(expirado){
-  codigoAcesso=""; store.set("codigo-acesso","");
+  encerrarSessao();
+  gateCodigo.value="";
   gateMsg.style.color="#b00020";
   gateMsg.textContent = expirado ? "Seu acesso expirou. Informe um código válido para continuar." : "";
   abrirGate();
@@ -560,7 +732,9 @@ async function tentarEntrar(){
   try{
     const res=await validarCodigo(cod);
     if(res.ok){
-      codigoAcesso=cod; store.set("codigo-acesso",cod);
+      codigoAcesso=cod;
+      sessionStorage.setItem("ec-sessao",cod);
+      marcarAtividade();
       gateMsg.style.color="#0B3D2E"; gateMsg.textContent="✓ Acesso liberado até "+fmtBR(res.validade);
       setTimeout(fecharGate,650);
     }else if(res.motivo==="expirado"){
@@ -574,15 +748,30 @@ async function tentarEntrar(){
 }
 gateEntrar.addEventListener("click",tentarEntrar);
 gateCodigo.addEventListener("keydown",e=>{ if(e.key==="Enter") tentarEntrar(); });
-/* ao abrir o app: revalida o código guardado; sem código válido, mostra a catraca */
-(async function(){
-  if(codigoAcesso){
-    try{ const res=await validarCodigo(codigoAcesso); if(res.ok){ fecharGate(); return; } }catch(e){}
+
+/* atividade do usuário rearma o relógio; ao voltar de aba/minimizar, checa o tempo ocioso */
+["click","keydown","change"].forEach(ev=>document.addEventListener(ev,marcarAtividade,true));
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible" && codigoAcesso){
+    const ultimo=parseInt(sessionStorage.getItem("ec-ultimo")||"0",10);
+    if(!ultimo || (Date.now()-ultimo)>INATIVIDADE_MS) bloquearPorInatividade(); else marcarAtividade();
   }
+});
+
+/* ao abrir: só reabre sem pedir código se for a MESMA sessão de navegador e dentro dos 10 min.
+   Fechou e abriu o navegador (sessionStorage vazio) => sempre pede o código. */
+(async function(){
+  const sess=sessionStorage.getItem("ec-sessao");
+  const ultimo=parseInt(sessionStorage.getItem("ec-ultimo")||"0",10);
+  if(sess && ultimo && (Date.now()-ultimo)<=INATIVIDADE_MS){
+    try{ const res=await validarCodigo(sess); if(res.ok){ codigoAcesso=sess; marcarAtividade(); fecharGate(); return; } }catch(e){}
+  }
+  encerrarSessao();
   abrirGate();
 })();
 
 atualizarBadge();
+atualizarBadgeDocs();
 /* frase de incentivo diário — aparece antes da primeira busca */
 (function(){
   const e=$("estado");
