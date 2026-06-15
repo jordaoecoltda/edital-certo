@@ -88,7 +88,11 @@ body{font-family:'Inter',sans-serif;background:var(--papel);color:var(--tinta);m
 
 /* ===== pipeline ===== */
 .grupo{margin:22px 0}
-.grupo h2{font-family:'Archivo',sans-serif;font-weight:700;font-size:16px;color:var(--verde);display:flex;align-items:baseline;gap:10px;border-bottom:2px solid var(--linha);padding-bottom:8px;margin-bottom:12px}
+.grupo h2{font-family:'Archivo',sans-serif;font-weight:700;font-size:16px;color:var(--verde);display:flex;align-items:baseline;gap:10px;border-bottom:2px solid var(--linha);padding-bottom:8px;margin-bottom:12px;cursor:pointer;user-select:none}
+.grupo h2 .caret{font-size:12px;color:var(--cinza);transition:transform .15s;align-self:center}
+.grupo.retraido h2{margin-bottom:0}
+.grupo.retraido h2 .caret{transform:rotate(-90deg)}
+.grupo.retraido .grupo-body{display:none}
 .grupo h2 .soma{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ouro);margin-left:auto}
 .status-sel{padding:6px 10px;border:1px solid var(--linha);border-radius:6px;font-size:12.5px;background:#FCFBF8}
 .notas{margin-top:6px;font-size:13px;min-height:42px}
@@ -223,7 +227,10 @@ body{font-family:'Inter',sans-serif;background:var(--papel);color:var(--tinta);m
   <!-- ================= PIPELINE ================= -->
   <section class="tela" id="tela-pipeline">
     <div class="acoes" style="margin-top:20px">
-      <button class="btn sec mini" id="exportar" type="button">Exportar CSV</button>
+      <button class="btn sec mini" id="exportar" type="button">⬇ Exportar CSV</button>
+      <button class="btn sec mini" id="relatorio" type="button">📄 Relatório (PDF)</button>
+      <button class="btn sec mini" id="recolher-todos" type="button">Recolher tudo</button>
+      <button class="btn sec mini" id="expandir-todos" type="button">Expandir tudo</button>
       <span class="dica">Suas licitações salvas, organizadas por etapa. Anotações são salvas automaticamente.</span>
     </div>
     <div id="pipeline-conteudo"></div>
@@ -507,6 +514,7 @@ function salvarLicit(i){
 }
 function atualizarBadge(){ $("badge-pipe").textContent=Object.keys(salvas).length; }
 
+let gruposRetraidos = store.get("grupos-retraidos") || {};
 function renderPipeline(){
   const cont=$("pipeline-conteudo");
   const itens=Object.values(salvas);
@@ -515,7 +523,10 @@ function renderPipeline(){
     const grupo=itens.filter(x=>x.status===st);
     if(!grupo.length)return "";
     const soma=grupo.reduce((s,x)=>s+(x.valor||0),0);
-    return `<div class="grupo"><h2>${titulo} <span class="dica">(${grupo.length})</span><span class="soma">${soma?fmtBRL(soma):""}</span></h2>
+    const ret=!!gruposRetraidos[st];
+    return `<div class="grupo ${ret?"retraido":""}">
+      <h2 onclick="toggleGrupo('${st}')"><span class="caret">▾</span>${titulo} <span class="dica">(${grupo.length})</span><span class="soma">${soma?fmtBRL(soma):""}</span></h2>
+      <div class="grupo-body">
       ${grupo.map(x=>{
         const enc=x.encerramento?new Date(x.encerramento):null;
         const dr=enc?Math.ceil((enc-new Date())/86400000):null;
@@ -537,9 +548,12 @@ function renderPipeline(){
           </div>
           <textarea class="notas" placeholder="Anotações: requisitos, documentos, estratégia de preço…" onchange="mudarNotas('${x.nc}',this.value)">${esc(x.notas||"")}</textarea>
         </article>`;
-      }).join("")}</div>`;
+      }).join("")}
+      </div></div>`;
   }).join("") || '<p class="vazio">Nenhuma licitação nos grupos.</p>';
 }
+function toggleGrupo(st){ gruposRetraidos[st]=!gruposRetraidos[st]; store.set("grupos-retraidos",gruposRetraidos); renderPipeline(); }
+function recolherTodos(v){ STATUS.forEach(([st])=>gruposRetraidos[st]=v); store.set("grupos-retraidos",gruposRetraidos); renderPipeline(); }
 function mudarStatus(nc,v){ if(salvas[nc]){salvas[nc].status=v;store.set("licitacoes-salvas",salvas);renderPipeline();} }
 function mudarNotas(nc,v){ if(salvas[nc]){salvas[nc].notas=v;store.set("licitacoes-salvas",salvas);} }
 function removerLicit(nc){ delete salvas[nc];store.set("licitacoes-salvas",salvas);atualizarBadge();renderPipeline(); }
@@ -556,6 +570,71 @@ function exportarCSV(){
 }
 $("exportar").addEventListener("click",exportarCSV);
 
+function exportarRelatorio(){
+  const itens=Object.values(salvas);
+  if(!itens.length)return alert("Nada para gerar ainda. Salve licitações no Radar primeiro.");
+  const agora=new Date().toLocaleString("pt-BR");
+  const totalValor=itens.reduce((s,x)=>s+(x.valor||0),0);
+  const empresa=(perfil||"").split(/[\n.]/)[0].trim().slice(0,80) || "Minha empresa";
+
+  const secoes=STATUS.map(([st,titulo])=>{
+    const g=itens.filter(x=>x.status===st);
+    if(!g.length)return "";
+    const soma=g.reduce((s,x)=>s+(x.valor||0),0);
+    const linhas=g.map(x=>{
+      const enc=x.encerramento?new Date(x.encerramento).toLocaleDateString("pt-BR"):"—";
+      return `<tr>
+        <td>${esc(x.objeto||"")}</td>
+        <td>${esc(x.orgao||"")}</td>
+        <td>${esc(x.cidade||"")}</td>
+        <td style="white-space:nowrap">${fmtBRL(x.valor)}</td>
+        <td style="white-space:nowrap">${enc}</td>
+        <td>${esc(x.notas||"")}</td>
+      </tr>`;
+    }).join("");
+    return `<h2>${esc(titulo)} <small>(${g.length}${soma?" · "+fmtBRL(soma):""})</small></h2>
+      <table><thead><tr><th>Objeto</th><th>Órgão</th><th>Cidade</th><th>Valor estimado</th><th>Encerramento</th><th>Anotações</th></tr></thead>
+      <tbody>${linhas}</tbody></table>`;
+  }).join("");
+
+  const html=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório de Licitações — Edital Certo</title>
+  <style>
+    *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#1A1A18;margin:32px;font-size:12px}
+    .cab{border-bottom:3px solid #0B3D2E;padding-bottom:12px;margin-bottom:18px}
+    .cab .marca{font-size:20px;font-weight:800;color:#0B3D2E}
+    .cab .sub{color:#555;font-size:12px;margin-top:2px}
+    .resumo{display:flex;gap:24px;margin:14px 0 22px;flex-wrap:wrap}
+    .resumo div{background:#F2F6F4;border:1px solid #DDE7E2;border-radius:8px;padding:10px 16px}
+    .resumo .n{font-size:18px;font-weight:800;color:#0B3D2E}
+    .resumo .l{font-size:11px;color:#666}
+    h2{font-size:14px;color:#0B3D2E;margin:22px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px}
+    h2 small{color:#888;font-weight:normal}
+    table{width:100%;border-collapse:collapse;margin-bottom:10px}
+    th,td{text-align:left;padding:6px 8px;border:1px solid #E2E2E2;vertical-align:top}
+    th{background:#0B3D2E;color:#fff;font-size:11px}
+    tr:nth-child(even) td{background:#FAFAF8}
+    .rodape{margin-top:24px;color:#888;font-size:10px;border-top:1px solid #ddd;padding-top:8px}
+    @media print{ body{margin:14px} .noprint{display:none} button{display:none} }
+  </style></head><body>
+    <div class="cab"><div class="marca">Edital Certo · Relatório de Licitações</div>
+    <div class="sub">${esc(empresa)} — gerado em ${agora}</div></div>
+    <div class="resumo">
+      <div><div class="n">${itens.length}</div><div class="l">licitações acompanhadas</div></div>
+      <div><div class="n">${fmtBRL(totalValor)}</div><div class="l">valor estimado somado</div></div>
+    </div>
+    ${secoes}
+    <div class="rodape">Fonte dos dados: PNCP (pncp.gov.br) · Lei 14.133/2021 · Documento gerado pelo Edital Certo para uso interno.</div>
+    <button class="noprint" onclick="window.print()" style="margin-top:20px;padding:10px 18px;background:#0B3D2E;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨️ Imprimir / Salvar como PDF</button>
+  </body></html>`;
+
+  const w=window.open("","_blank");
+  if(!w){ alert("Permita pop-ups para gerar o relatório."); return; }
+  w.document.write(html); w.document.close();
+}
+$("relatorio").addEventListener("click",exportarRelatorio);
+$("recolher-todos").addEventListener("click",()=>recolherTodos(true));
+$("expandir-todos").addEventListener("click",()=>recolherTodos(false));
+
 /* ============ Pergunte ao Edital (IA) ============ */
 async function buscarItens(nc){
   const p=partesPNCP(nc); if(!p)return null;
@@ -571,9 +650,10 @@ async function buscarItens(nc){
 async function analisarIA(i){
   const r=ultimaBusca[i]; if(!r)return;
   const box=$("ia-"+i); box.hidden=false;
-  box.innerHTML='<span class="spinner"></span>Lendo o edital e os itens da compra…';
+  box.innerHTML='<span class="spinner"></span>Buscando os itens da compra no PNCP…';
 
   const itens=await buscarItens(r.numeroControlePNCP);
+  box.innerHTML='<span class="spinner"></span>'+(itens&&itens.length?`${itens.length} ${itens.length>1?"itens encontrados":"item encontrado"}. `:"")+'Analisando o edital com a IA…';
   const dados={
     objeto:r.objetoCompra, orgao:r.orgaoEntidade?.razaoSocial,
     cidade:r.unidadeOrgao?.municipioNome+"/"+(r.unidadeOrgao?.ufSigla||""),
