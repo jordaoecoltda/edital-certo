@@ -339,6 +339,61 @@ let ultimaBusca = [];  // resultados da última busca em memória
 
 /* ============ acesso (catraca pelo Worker) ============ */
 const WORKER="https://edital-certo-ia.jordaoecoltda.workers.dev";
+
+/* ============ sincronização com o servidor (dados da empresa) ============
+   Perfil, cofre e licitações ficam no servidor (KV), com chave = código da
+   empresa. Assim todos da empresa, em qualquer máquina, veem o mesmo.
+   O "recolher grupos" do pipeline continua local (preferência de cada um). */
+let timerNuvem=null;
+function blobEmpresa(){ return { perfil, perfilData, cofreEstado, cofreCustom, salvas, v:2 }; }
+function cacheLocal(){
+  store.set("perfil-empresa",perfil); store.set("perfil-empresa-data",perfilData);
+  store.set("cofre-docs",cofreEstado); store.set("cofre-custom",cofreCustom);
+  store.set("licitacoes-salvas",salvas);
+}
+function salvarNuvem(){
+  cacheLocal();                         // rede de segurança imediata neste aparelho
+  if(!codigoAcesso) return;             // sem sessão: mantém só o cache local
+  if(timerNuvem) clearTimeout(timerNuvem);
+  timerNuvem=setTimeout(()=>{
+    fetch(WORKER+"/salvar-dados",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Acesso":codigoAcesso},
+      body:JSON.stringify(blobEmpresa())
+    }).catch(()=>{});                   // se falhar, fica o cache local e tenta na próxima mudança
+  },800);
+}
+function aplicarBlob(b){
+  if(!b||typeof b!=="object") return;
+  if(typeof b.perfil==="string") perfil=b.perfil;
+  if(b.perfilData!==undefined) perfilData=b.perfilData;
+  if(b.cofreEstado&&typeof b.cofreEstado==="object") cofreEstado=b.cofreEstado;
+  if(Array.isArray(b.cofreCustom)) cofreCustom=b.cofreCustom;
+  if(b.salvas&&typeof b.salvas==="object") salvas=b.salvas;
+  cacheLocal();
+}
+function refrescarTudo(){
+  if(perfil){ modoBloqueado(); } else { modoEdicao(false); }
+  atualizarBadge(); atualizarBadgeDocs();
+  const td=$("tela-docs"); if(td&&td.classList.contains("ativa")) renderDocs();
+  const tp=$("tela-pipeline"); if(tp&&tp.classList.contains("ativa")) renderPipeline();
+}
+async function carregarNuvem(){
+  if(!codigoAcesso) return;
+  try{
+    const r=await fetch(WORKER+"/dados",{method:"POST",headers:{"X-Acesso":codigoAcesso}});
+    if(!r.ok) return;
+    const b=await r.json();
+    const servidorVazio = !b || Object.keys(b).length===0;
+    if(servidorVazio){
+      // primeira vez desta empresa no servidor: migra o que houver neste aparelho
+      if(perfil||Object.keys(salvas).length||Object.keys(cofreEstado).length||cofreCustom.length) salvarNuvem();
+    }else{
+      aplicarBlob(b);
+    }
+    refrescarTudo();
+  }catch(e){ /* offline: segue com o cache local */ }
+}
 let codigoAcesso = "";
 const INATIVIDADE_MS = 10*60*1000;   // pede o código de novo após 10 min sem uso
 let timerInatividade = null;
@@ -507,7 +562,7 @@ function salvarLicit(i){
     modalidade:r.modalidadeNome, valor:Number(r.valorTotalEstimado)||0,
     encerramento:r.dataEncerramentoProposta||"", status:"salva", notas:"", salvaEm:new Date().toISOString()
   };
-  store.set("licitacoes-salvas",salvas);
+  salvarNuvem();
   atualizarBadge();
   const btns=document.querySelectorAll(`#card-${i} .btn.sec.mini`);
   btns.forEach(b=>{b.disabled=true;b.textContent="✓ Salva";});
@@ -554,9 +609,9 @@ function renderPipeline(){
 }
 function toggleGrupo(st){ gruposRetraidos[st]=!gruposRetraidos[st]; store.set("grupos-retraidos",gruposRetraidos); renderPipeline(); }
 function recolherTodos(v){ STATUS.forEach(([st])=>gruposRetraidos[st]=v); store.set("grupos-retraidos",gruposRetraidos); renderPipeline(); }
-function mudarStatus(nc,v){ if(salvas[nc]){salvas[nc].status=v;store.set("licitacoes-salvas",salvas);renderPipeline();} }
-function mudarNotas(nc,v){ if(salvas[nc]){salvas[nc].notas=v;store.set("licitacoes-salvas",salvas);} }
-function removerLicit(nc){ delete salvas[nc];store.set("licitacoes-salvas",salvas);atualizarBadge();renderPipeline(); }
+function mudarStatus(nc,v){ if(salvas[nc]){salvas[nc].status=v;salvarNuvem();renderPipeline();} }
+function mudarNotas(nc,v){ if(salvas[nc]){salvas[nc].notas=v;salvarNuvem();} }
+function removerLicit(nc){ delete salvas[nc];salvarNuvem();atualizarBadge();renderPipeline(); }
 
 function exportarCSV(){
   const itens=Object.values(salvas);
@@ -785,9 +840,8 @@ if(perfil){ modoBloqueado(); } else { modoEdicao(false); }
 btnSalvarP.addEventListener("click",()=>{
   perfil=txtPerfil.value.trim();
   if(!perfil){ okPerfil.textContent="Escreva o perfil antes de salvar."; return; }
-  store.set("perfil-empresa",perfil);
   perfilData=new Date().toISOString();
-  store.set("perfil-empresa-data",perfilData);
+  salvarNuvem();
   modoBloqueado();
 });
 btnEditarP.addEventListener("click",()=>modoEdicao(true));
@@ -810,7 +864,7 @@ let cofreCustom = store.get("cofre-custom") || [];
 
 function todosDocs(){ return [...DOCS_PADRAO, ...cofreCustom]; }
 function estadoDoc(id){ return cofreEstado[id] || {possui:false, validade:"", obs:""}; }
-function salvarCofre(){ store.set("cofre-docs",cofreEstado); store.set("cofre-custom",cofreCustom); atualizarBadgeDocs(); }
+function salvarCofre(){ salvarNuvem(); atualizarBadgeDocs(); }
 
 function statusDoc(e){
   if(!e.possui) return {cls:"pendente", txt:"Não cadastrado"};
@@ -958,6 +1012,7 @@ async function tentarEntrar(){
       codigoAcesso=cod;
       sessionStorage.setItem("ec-sessao",cod);
       marcarAtividade();
+      carregarNuvem();
       gateMsg.style.color="#0B3D2E"; gateMsg.textContent="✓ Acesso liberado até "+fmtBR(res.validade);
       setTimeout(fecharGate,650);
     }else if(res.motivo==="expirado"){
@@ -987,7 +1042,7 @@ document.addEventListener("visibilitychange",()=>{
   const sess=sessionStorage.getItem("ec-sessao");
   const ultimo=parseInt(sessionStorage.getItem("ec-ultimo")||"0",10);
   if(sess && ultimo && (Date.now()-ultimo)<=INATIVIDADE_MS){
-    try{ const res=await validarCodigo(sess); if(res.ok){ codigoAcesso=sess; marcarAtividade(); fecharGate(); return; } }catch(e){}
+    try{ const res=await validarCodigo(sess); if(res.ok){ codigoAcesso=sess; marcarAtividade(); carregarNuvem(); fecharGate(); return; } }catch(e){}
   }
   encerrarSessao();
   abrirGate();
