@@ -735,8 +735,9 @@ function salvarCofre(){ store.set("cofre-docs",cofreEstado); store.set("cofre-cu
 function statusDoc(e){
   if(!e.possui) return {cls:"pendente", txt:"Não cadastrado"};
   if(!e.validade) return {cls:"ok", txt:"Em dia"};
-  const hoje=new Date(); hoje.setHours(0,0,0,0);
   const v=new Date(e.validade+"T12:00:00");
+  if(isNaN(v) || v.getFullYear()<2000 || v.getFullYear()>2100) return {cls:"vencendo", txt:"Revise a validade"};
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
   const dias=Math.round((v-hoje)/86400000);
   if(dias<0) return {cls:"vencido", txt:"Vencido há "+Math.abs(dias)+"d"};
   if(dias<=30) return {cls:"vencendo", txt:"Vence em "+dias+"d"};
@@ -779,7 +780,7 @@ function renderDocs(){
           `<span class="doc-status ${s.cls}">${s.txt}</span>`+
         `</div>`+
         `<div class="doc-campos">`+
-          `<div class="mini-campo"><label>Validade</label><input type="date" value="${e.validade||""}" onchange="setDocValidade('${d.id}',this.value)"></div>`+
+          `<div class="mini-campo"><label>Validade</label><input type="text" inputmode="numeric" maxlength="10" placeholder="DD/MM/AAAA" value="${isoParaBR(e.validade)}" oninput="mascaraData(this)" onchange="setDocValidadeBR('${d.id}',this.value)"></div>`+
           `<div class="mini-campo" style="flex:1;min-width:170px"><label>Observação (nº, órgão…)</label><input type="text" value="${esc(e.obs||"")}" placeholder="opcional" onchange="setDocObs('${d.id}',this.value)"></div>`+
           (d.custom?`<button class="btn sec mini" type="button" onclick="removerDoc('${d.id}')">remover</button>`:"")+
         `</div>`+
@@ -789,7 +790,29 @@ function renderDocs(){
   $("docs-lista").innerHTML=html;
 }
 function setDocPossui(id,v){ const e=estadoDoc(id); e.possui=v; cofreEstado[id]=e; salvarCofre(); renderDocs(); }
-function setDocValidade(id,v){ const e=estadoDoc(id); e.validade=v; if(v)e.possui=true; cofreEstado[id]=e; salvarCofre(); renderDocs(); }
+function isoParaBR(iso){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||""); return m?`${m[3]}/${m[2]}/${m[1]}`:""; }
+function mascaraData(el){
+  const d=el.value.replace(/\D/g,"").slice(0,8);
+  if(d.length>=5) el.value=d.slice(0,2)+"/"+d.slice(2,4)+"/"+d.slice(4);
+  else if(d.length>=3) el.value=d.slice(0,2)+"/"+d.slice(2);
+  else el.value=d;
+}
+function brParaIso(br){
+  const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec((br||"").trim());
+  if(!m) return null;
+  const dia=+m[1], mes=+m[2], ano=+m[3];
+  if(ano<2000||ano>2100||mes<1||mes>12||dia<1||dia>31) return null;
+  const dt=new Date(ano,mes-1,dia);
+  if(dt.getFullYear()!==ano||dt.getMonth()!==mes-1||dt.getDate()!==dia) return null; // rejeita data inexistente (ex.: 31/02)
+  return `${ano}-${String(mes).padStart(2,"0")}-${String(dia).padStart(2,"0")}`;
+}
+function setDocValidadeBR(id,br){
+  const e=estadoDoc(id);
+  if(!br || !br.trim()){ e.validade=""; cofreEstado[id]=e; salvarCofre(); renderDocs(); return; }
+  const iso=brParaIso(br);
+  if(!iso){ renderDocs(); return; }      // incompleta/inválida: restaura o último valor salvo
+  e.validade=iso; e.possui=true; cofreEstado[id]=e; salvarCofre(); renderDocs();
+}
 function setDocObs(id,v){ const e=estadoDoc(id); e.obs=v; cofreEstado[id]=e; salvarCofre(); }
 function removerDoc(id){ cofreCustom=cofreCustom.filter(d=>d.id!==id); delete cofreEstado[id]; salvarCofre(); renderDocs(); }
 function adicionarDocCustom(){
