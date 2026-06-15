@@ -333,8 +333,8 @@ const store={
   get(k){ try{return JSON.parse(localStorage.getItem(k))}catch(e){return memoria[k]??null} },
   set(k,v){ try{localStorage.setItem(k,JSON.stringify(v))}catch(e){memoria[k]=v} }
 };
-let salvas = store.get("licitacoes-salvas") || {};   // chave: numeroControlePNCP
-let perfil = store.get("perfil-empresa") || "";
+let salvas = {};   // carregado do servidor por código de empresa
+let perfil = "";
 let ultimaBusca = [];  // resultados da última busca em memória
 
 /* ============ acesso (catraca pelo Worker) ============ */
@@ -346,14 +346,20 @@ const WORKER="https://edital-certo-ia.jordaoecoltda.workers.dev";
    O "recolher grupos" do pipeline continua local (preferência de cada um). */
 let timerNuvem=null;
 function blobEmpresa(){ return { perfil, perfilData, cofreEstado, cofreCustom, salvas, v:2 }; }
-function cacheLocal(){
-  store.set("perfil-empresa",perfil); store.set("perfil-empresa-data",perfilData);
-  store.set("cofre-docs",cofreEstado); store.set("cofre-custom",cofreCustom);
-  store.set("licitacoes-salvas",salvas);
+/* cache local SEPARADO por código — um código nunca enxerga o cache de outro */
+function chaveCache(){ return "cache:"+(codigoAcesso||"").toUpperCase(); }
+function cacheLocal(){ if(codigoAcesso) store.set(chaveCache(), blobEmpresa()); }
+function aplicarEmMemoria(b){
+  b = b && typeof b==="object" ? b : {};
+  perfil      = typeof b.perfil==="string" ? b.perfil : "";
+  perfilData  = b.perfilData!==undefined ? b.perfilData : null;
+  cofreEstado = (b.cofreEstado && typeof b.cofreEstado==="object") ? b.cofreEstado : {};
+  cofreCustom = Array.isArray(b.cofreCustom) ? b.cofreCustom : [];
+  salvas      = (b.salvas && typeof b.salvas==="object") ? b.salvas : {};
 }
 function salvarNuvem(){
-  cacheLocal();                         // rede de segurança imediata neste aparelho
-  if(!codigoAcesso) return;             // sem sessão: mantém só o cache local
+  cacheLocal();                         // rede de segurança imediata (por código)
+  if(!codigoAcesso) return;
   if(timerNuvem) clearTimeout(timerNuvem);
   timerNuvem=setTimeout(()=>{
     fetch(WORKER+"/salvar-dados",{
@@ -363,15 +369,6 @@ function salvarNuvem(){
     }).catch(()=>{});                   // se falhar, fica o cache local e tenta na próxima mudança
   },800);
 }
-function aplicarBlob(b){
-  if(!b||typeof b!=="object") return;
-  if(typeof b.perfil==="string") perfil=b.perfil;
-  if(b.perfilData!==undefined) perfilData=b.perfilData;
-  if(b.cofreEstado&&typeof b.cofreEstado==="object") cofreEstado=b.cofreEstado;
-  if(Array.isArray(b.cofreCustom)) cofreCustom=b.cofreCustom;
-  if(b.salvas&&typeof b.salvas==="object") salvas=b.salvas;
-  cacheLocal();
-}
 function refrescarTudo(){
   if(perfil){ modoBloqueado(); } else { modoEdicao(false); }
   atualizarBadge(); atualizarBadgeDocs();
@@ -380,6 +377,10 @@ function refrescarTudo(){
 }
 async function carregarNuvem(){
   if(!codigoAcesso) return;
+  aplicarEmMemoria({});                 // zera qualquer dado de outro código antes de carregar
+  const c = store.get(chaveCache());    // cache DESTE código (se houver), pra não piscar vazio
+  if(c){ aplicarEmMemoria(c); }
+  refrescarTudo();
   try{
     const r=await fetch(WORKER+"/dados",{method:"POST",headers:{"X-Acesso":codigoAcesso}});
     if(!r.ok) return;
@@ -390,14 +391,10 @@ async function carregarNuvem(){
       (b.cofreEstado && Object.keys(b.cofreEstado).length) ||
       (Array.isArray(b.cofreCustom) && b.cofreCustom.length)
     );
-    if(!temDadosReais){
-      // servidor sem dados reais (vazio ou só com resíduo): migra o que houver neste aparelho
-      if(perfil||Object.keys(salvas).length||Object.keys(cofreEstado).length||cofreCustom.length) salvarNuvem();
-    }else{
-      aplicarBlob(b);
-    }
+    aplicarEmMemoria(temDadosReais ? b : {});   // servidor manda; empresa nova começa vazia
+    cacheLocal();
     refrescarTudo();
-  }catch(e){ /* offline: segue com o cache local */ }
+  }catch(e){ /* offline: fica com o cache DESTE código (ou vazio) */ }
 }
 let codigoAcesso = "";
 const INATIVIDADE_MS = 10*60*1000;   // pede o código de novo após 10 min sem uso
@@ -817,7 +814,7 @@ function renderChecklist(exigidos){
 
 /* ============ perfil ============ */
 const txtPerfil=$("perfil-texto"), btnSalvarP=$("salvar-perfil"), btnEditarP=$("editar-perfil"), okPerfil=$("perfil-ok");
-let perfilData=store.get("perfil-empresa-data")||null;
+let perfilData=null;
 
 function fmtDataPerfil(iso){
   if(!iso) return "";
@@ -864,8 +861,8 @@ const DOCS_PADRAO=[
   {id:"balanco", nome:"Balanço Patrimonial / DRE do último exercício", grupo:"Qualificação econômico-financeira"},
   {id:"atestado", nome:"Atestado(s) de Capacidade Técnica", grupo:"Qualificação técnica"},
 ];
-let cofreEstado = store.get("cofre-docs") || {};
-let cofreCustom = store.get("cofre-custom") || [];
+let cofreEstado = {};
+let cofreCustom = [];
 
 function todosDocs(){ return [...DOCS_PADRAO, ...cofreCustom]; }
 function estadoDoc(id){ return cofreEstado[id] || {possui:false, validade:"", obs:""}; }
