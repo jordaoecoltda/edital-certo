@@ -384,9 +384,14 @@ async function carregarNuvem(){
     const r=await fetch(WORKER+"/dados",{method:"POST",headers:{"X-Acesso":codigoAcesso}});
     if(!r.ok) return;
     const b=await r.json();
-    const servidorVazio = !b || Object.keys(b).length===0;
-    if(servidorVazio){
-      // primeira vez desta empresa no servidor: migra o que houver neste aparelho
+    const temDadosReais = b && (
+      (typeof b.perfil==="string" && b.perfil) ||
+      (b.salvas && Object.keys(b.salvas).length) ||
+      (b.cofreEstado && Object.keys(b.cofreEstado).length) ||
+      (Array.isArray(b.cofreCustom) && b.cofreCustom.length)
+    );
+    if(!temDadosReais){
+      // servidor sem dados reais (vazio ou só com resíduo): migra o que houver neste aparelho
       if(perfil||Object.keys(salvas).length||Object.keys(cofreEstado).length||cofreCustom.length) salvarNuvem();
     }else{
       aplicarBlob(b);
