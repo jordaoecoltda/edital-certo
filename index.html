@@ -72,6 +72,8 @@ body{font-family:'Inter',sans-serif;background:var(--papel);color:var(--tinta);m
 /* selo "combina com perfil" */
 .tag.match{background:#E7F0FF;color:#1f5fbf}
 .toggle-perfil{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tinta);margin-left:auto;cursor:pointer;user-select:none}
+.dica-perfil{margin-left:auto;font-size:13px;color:#8A6D14;background:#F8EFD3;border:1px solid #E8D9A8;border-radius:6px;padding:6px 12px;cursor:pointer}
+.dica-perfil:hover{background:#F3E6BE}
 .toggle-perfil input{width:16px;height:16px;accent-color:var(--verde);cursor:pointer}
 /* checklist de documentos */
 .chk-box{background:#FBFAF6;border:1px solid #E4E0D4;border-radius:8px;padding:14px;font-size:13.5px;line-height:1.55}
@@ -219,6 +221,7 @@ body{font-family:'Inter',sans-serif;background:var(--papel);color:var(--tinta);m
       <div><span class="num" id="qtd">0</span><span class="rotulo">oportunidades</span></div>
       <div><span class="valor-total" id="soma">R$ 0</span><span class="rotulo">valor estimado somado</span></div>
       <label class="toggle-perfil" id="wrap-so-perfil" hidden><input type="checkbox" id="so-perfil"> Mostrar só os que combinam com meu perfil</label>
+      <span class="dica-perfil" id="dica-perfil" hidden onclick="document.querySelector('[data-tela=perfil]').click()">💡 Preencha o <b>Perfil da Empresa</b> para destacar os editais que combinam com você.</span>
     </div>
     <div class="estado" id="estado" hidden></div>
     <section class="lista" id="lista" aria-live="polite"></section>
@@ -452,6 +455,7 @@ function renderResultados(){
   const chaves=palavrasPerfil();
   const temPerfil=chaves.length>0;
   $("wrap-so-perfil").hidden=!temPerfil;
+  $("dica-perfil").hidden=temPerfil;
   const soPerfil = temPerfil && $("so-perfil").checked;
   const vis = soPerfil ? ultimaBusca.filter(r=>combinaPerfil(r,chaves)) : ultimaBusca;
   $("qtd").textContent=vis.length;
