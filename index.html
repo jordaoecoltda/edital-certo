@@ -172,7 +172,7 @@ body{font-family:'Inter',sans-serif;background:var(--papel);color:var(--tinta);m
     <form class="filtros" onsubmit="return false">
       <div class="campo campo-larga">
         <label for="palavras">Palavras-chave no objeto (separe por vírgula — vazio = tudo)</label>
-        <input id="palavras" type="text" placeholder="ex.: veículo, locação de frota, automóvel">
+        <input id="palavras" type="text" placeholder="ex.: informática, mobiliário, limpeza, alimentos">
       </div>
       <div class="mods">
         <span class="legenda" style="width:100%">Modalidades (pode marcar várias)</span>
@@ -275,7 +275,7 @@ body{font-family:'Inter',sans-serif;background:var(--papel);color:var(--tinta);m
     <div class="cartao">
       <h2>Perfil da empresa</h2>
       <p>Descreva o que sua empresa vende/faz, porte, certidões que possui e região de atuação. A análise por IA usa isso para avaliar se cada edital vale a pena pra você.</p>
-      <textarea id="perfil-texto" rows="6" placeholder="ex.: Jordão & Co Ltda, intermediação de negócios com especialização em veículos. Atuamos na Grande SP/ABC. Interesse em fornecimento e locação de veículos, intermediação de compras..."></textarea>
+      <textarea id="perfil-texto" rows="6" placeholder="ex.: Empresa de comércio e serviços de pequeno porte (ME). Fornecemos materiais de escritório, equipamentos de informática, mobiliário corporativo e gêneros alimentícios, além de serviços de limpeza e manutenção predial. Atuação: todo o estado de São Paulo. Interesse em pregões de fornecimento, locação e prestação de serviços a órgãos públicos."></textarea>
       <div class="acoes" style="margin-top:14px">
         <button class="btn" id="salvar-perfil" type="button">Salvar perfil</button>
         <button class="btn sec mini" id="editar-perfil" type="button" hidden>✏️ Editar</button>
@@ -497,8 +497,9 @@ async function buscar(){
     }
   }catch(e){
     if(e.acesso){ btn.disabled=false; return; }
+    console.warn("Busca PNCP falhou:", e.message);   // detalhe técnico fica só aqui
     estado.className="estado erro";
-    estado.textContent="O PNCP está instável agora ("+e.message+"). Tentamos 3 vezes sem sucesso — aguarde 1 minuto e busque novamente.";
+    estado.innerHTML="⚠️ A base oficial do governo (PNCP) está instável neste momento — isso acontece do lado deles e afeta todos os sistemas de licitação. Aguarde um instante e busque novamente.";
     btn.disabled=false; return;
   }
 
